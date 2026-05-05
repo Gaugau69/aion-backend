@@ -350,7 +350,8 @@ class PeakflowApp(tk.Tk):
             api = Garmin(email, pwd, return_on_mfa=True)
             result = api.login()
 
-            if result:
+            # result = None si pas de 2FA, tuple si 2FA requise
+            if result and isinstance(result, tuple):
                 client_state, _ = result
                 self._api          = api
                 self._client_state = client_state
