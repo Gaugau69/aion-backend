@@ -22,19 +22,15 @@ def _extract_display_name_from_token(token_data: dict) -> str:
     Extrait le display_name (UUID Garmin) depuis le JWT di_token.
     C'est l'UUID utilisé dans les URLs de l'API Garmin.
     """
-    # Cas 1 : display_name déjà stocké dans le token
     if token_data.get("display_name"):
         return token_data["display_name"]
 
-    # Cas 2 : extraire depuis le JWT di_token
     di_token = token_data.get("di_token", "")
     if di_token:
         try:
             payload = di_token.split(".")[1]
-            # Padding base64
             payload += "=" * (4 - len(payload) % 4)
             decoded = json.loads(base64.b64decode(payload))
-            # L'UUID est dans "sub" ou "clientId"
             uuid = decoded.get("sub") or decoded.get("clientId") or decoded.get("clid", "")
             if uuid:
                 log.info(f"display_name extrait du JWT: {uuid}")
@@ -53,9 +49,9 @@ def _dump_token(api: Garmin) -> str:
         pass
     try:
         token_data = {
-            "version": "0.3",
-            "client": base64.b64encode(pickle.dumps(api.client)).decode("utf-8"),
-            "username": getattr(api, "username", ""),
+            "version":      "0.3",
+            "client":       base64.b64encode(pickle.dumps(api.client)).decode("utf-8"),
+            "username":     getattr(api, "username", ""),
             "display_name": getattr(api, "display_name", ""),
         }
         return json.dumps(token_data)
@@ -75,26 +71,37 @@ def _load_api(token_json: str, email: str) -> Garmin | None:
             api.login(token_data)
             return api
 
-        # Nouvelle API 0.3.x — pickle
+        # Nouvelle API 0.3.x — format pickle
         if token_data.get("version") == "0.3" and token_data.get("client"):
             api = Garmin(email, "")
             api.client = pickle.loads(base64.b64decode(token_data["client"]))
+
+            # Tente un refresh automatique du token
+            try:
+                api.client._refresh_di_token()
+                log.info(f"Token pickle rafraîchi automatiquement pour {email}")
+            except Exception as e:
+                log.warning(f"Refresh token pickle échoué pour {email}: {e}")
+
             display_name = _extract_display_name_from_token(token_data)
             if display_name:
                 api.display_name = display_name
                 log.info(f"display_name restauré : {display_name}")
             else:
                 log.warning("display_name introuvable dans le token")
+
             return api
 
-        # Nouvelle API 0.3.x — dumps() natif (tokens avec 2FA)
+        # Nouvelle API 0.3.x — format client.dumps()
         if token_data.get("version") == "0.3" and token_data.get("client_dump"):
             api = Garmin(email, "")
             api.client.loads(token_data["client_dump"])
+
             display_name = token_data.get("display_name", "")
             if display_name:
                 api.display_name = display_name
                 log.info(f"display_name restauré (dumps) : {display_name}")
+
             return api
 
     except Exception as e:
