@@ -1,7 +1,7 @@
 """
 app/services/collect.py — Orchestration de la collecte et upsert en DB.
 
-Supporte Garmin et Polar — détecte automatiquement le provider depuis le token.
+Supporte Garmin, Polar et Withings — détecte automatiquement le provider depuis le token.
 """
 
 import json
@@ -32,7 +32,7 @@ _GARMIN_PARSERS = [
 
 
 def _get_provider(user: User) -> str:
-    """Détecte le provider (garmin/polar) depuis le token."""
+    """Détecte le provider (garmin/polar/withings) depuis le token."""
     if not user.token_json:
         return "unknown"
     try:
@@ -40,6 +40,15 @@ def _get_provider(user: User) -> str:
         return token_data.get("provider", "garmin")
     except Exception:
         return "garmin"
+
+
+def _safe_upsert_row(row: dict, exclude_keys: tuple) -> dict:
+    """
+    Retourne un dict de mise à jour sans les clés exclues et non vide.
+    Évite le ValueError: set parameter dictionary must not be empty.
+    """
+    set_dict = {k: v for k, v in row.items() if k not in exclude_keys}
+    return set_dict if set_dict else {"user_id": row.get("user_id")}
 
 
 async def collect_user_range(db: AsyncSession, user: User, start: date, end: date) -> dict:
@@ -75,24 +84,26 @@ async def _collect_garmin_range(db: AsyncSession, user: User, start: date, end: 
         for parser in _GARMIN_PARSERS:
             row.update(parser(api, current))
 
+        set_dict = _safe_upsert_row(row, ("user_id", "date"))
         await db.execute(
             pg_insert(DailyMetric)
             .values(**row)
             .on_conflict_do_update(
                 constraint="uq_user_date",
-                set_={k: row[k] for k in row if k not in ("user_id", "date")},
+                set_=set_dict,
             )
         )
         days_ok += 1
 
         for act in parse_activities(api, current):
             act_row = {"user_id": user.id, "date": current, **act}
+            act_set = _safe_upsert_row(act_row, ("user_id", "activity_id"))
             await db.execute(
                 pg_insert(Activity)
                 .values(**act_row)
                 .on_conflict_do_update(
                     constraint="uq_user_activity",
-                    set_={k: act_row[k] for k in act_row if k not in ("user_id", "activity_id")},
+                    set_=act_set,
                 )
             )
             acts_ok += 1
@@ -112,7 +123,6 @@ async def _collect_polar_range(db: AsyncSession, user: User, start: date, end: d
     if not headers:
         return {"status": "error", "reason": "token Polar invalide"}
 
-    # Récupère le polar_user_id depuis le token
     try:
         token_data = json.loads(user.token_json)
         polar_user_id = token_data.get("polar_user_id", "")
@@ -129,31 +139,30 @@ async def _collect_polar_range(db: AsyncSession, user: User, start: date, end: d
     while current <= end:
         log.info(f"[{user.name}] collecting Polar {current}")
 
-        # Collecte les métriques du jour
         metrics = await collect_day_polar(headers, polar_user_id, current)
-
         row = {"user_id": user.id, "date": current, **metrics}
 
+        set_dict = _safe_upsert_row(row, ("user_id", "date"))
         await db.execute(
             pg_insert(DailyMetric)
             .values(**row)
             .on_conflict_do_update(
                 constraint="uq_user_date",
-                set_={k: row[k] for k in row if k not in ("user_id", "date")},
+                set_=set_dict,
             )
         )
         days_ok += 1
 
-        # Collecte les activités
         activities = await collect_activities_polar(headers, polar_user_id, current)
         for act in activities:
             act_row = {"user_id": user.id, "date": current, **act}
+            act_set = _safe_upsert_row(act_row, ("user_id", "activity_id"))
             await db.execute(
                 pg_insert(Activity)
                 .values(**act_row)
                 .on_conflict_do_update(
                     constraint="uq_user_activity",
-                    set_={k: act_row[k] for k in act_row if k not in ("user_id", "activity_id")},
+                    set_=act_set,
                 )
             )
             acts_ok += 1
@@ -164,6 +173,9 @@ async def _collect_polar_range(db: AsyncSession, user: User, start: date, end: d
     return {"status": "ok", "days": days_ok, "activities": acts_ok}
 
 
+# ─────────────────────────────────────────────────────────────
+# Withings
+# ─────────────────────────────────────────────────────────────
 
 async def _collect_withings_range(db: AsyncSession, user: User, start: date, end: date) -> dict:
     headers = await get_withings_headers(user)
@@ -180,12 +192,13 @@ async def _collect_withings_range(db: AsyncSession, user: User, start: date, end
         metrics = await collect_day_withings(headers, current)
         row = {"user_id": user.id, "date": current, **metrics}
 
+        set_dict = _safe_upsert_row(row, ("user_id", "date"))
         await db.execute(
             pg_insert(DailyMetric)
             .values(**row)
             .on_conflict_do_update(
                 constraint="uq_user_date",
-                set_={k: row[k] for k in row if k not in ("user_id", "date")},
+                set_=set_dict,
             )
         )
         days_ok += 1
@@ -193,12 +206,13 @@ async def _collect_withings_range(db: AsyncSession, user: User, start: date, end
         activities = await collect_activities_withings(headers, current)
         for act in activities:
             act_row = {"user_id": user.id, "date": current, **act}
+            act_set = _safe_upsert_row(act_row, ("user_id", "activity_id"))
             await db.execute(
                 pg_insert(Activity)
                 .values(**act_row)
                 .on_conflict_do_update(
                     constraint="uq_user_activity",
-                    set_={k: act_row[k] for k in act_row if k not in ("user_id", "activity_id")},
+                    set_=act_set,
                 )
             )
             acts_ok += 1
@@ -219,5 +233,8 @@ async def collect_all_users_yesterday(db: AsyncSession):
     users = (await db.execute(select(User))).scalars().all()
     log.info(f"Cron: {yesterday} — {len(users)} user(s)")
     for user in users:
-        summary = await collect_user_range(db, user, yesterday, yesterday)
-        log.info(f"[{user.name}] {summary}")
+        try:
+            summary = await collect_user_range(db, user, yesterday, yesterday)
+            log.info(f"[{user.name}] {summary}")
+        except Exception as e:
+            log.error(f"[{user.name}] Erreur collecte: {e}")
