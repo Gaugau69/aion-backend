@@ -26,13 +26,13 @@ jobs:
 
       - name: Build .exe
         run: |
-          pyinstaller --onefile --windowed --name "Cronos" desktop/main.py
+          pyinstaller --onefile --windowed --name "CRONOS" desktop/main.py
 
       - name: Upload .exe
         uses: actions/upload-artifact@v4
         with:
-          name: Cronos-Windows
-          path: dist/Cronos.exe
+          name: CRONOS-Windows
+          path: dist/CRONOS.exe
 
   # ── Build Mac .dmg ──
   build-mac:
@@ -51,25 +51,25 @@ jobs:
 
       - name: Build .app
         run: |
-          pyinstaller --onefile --windowed --name "Cronos" desktop/main.py
+          pyinstaller --onefile --windowed --name "CRONOS" desktop/main.py
 
       - name: Create .dmg
         run: |
           brew install create-dmg
           create-dmg \
-            --volname "Cronos" \
+            --volname "CRONOS" \
             --window-pos 200 120 \
             --window-size 600 400 \
             --icon-size 100 \
             --app-drop-link 450 185 \
-            "dist/Cronos.dmg" \
-            "dist/Cronos.app"
+            "dist/CRONOS.dmg" \
+            "dist/CRONOS.app"
 
       - name: Upload .dmg
         uses: actions/upload-artifact@v4
         with:
-          name: Cronos-Mac
-          path: dist/Cronos.dmg
+          name: CRONOS-Mac
+          path: dist/CRONOS.dmg
 
   # ── Créer une Release GitHub automatiquement ──
   release:
@@ -83,28 +83,28 @@ jobs:
       - name: Download Windows artifact
         uses: actions/download-artifact@v4
         with:
-          name: Cronos-Windows
+          name: CRONOS-Windows
           path: dist/
 
       - name: Download Mac artifact
         uses: actions/download-artifact@v4
         with:
-          name: Cronos-Mac
+          name: CRONOS-Mac
           path: dist/
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: latest
-          name: Cronos Desktop App
+          name: CRONOS Desktop App
           files: |
-            dist/Cronos.exe
-            dist/Cronos.dmg
+            dist/CRONOS.exe
+            dist/CRONOS.dmg
           body: |
-            ## Cronos — Connexion montre
+            ## CRONOS — Connexion montre
 
             Télécharge l'app, connecte ta montre Garmin ou Polar, et tes données sont collectées automatiquement chaque nuit.
 
             ### Installation
-            - **Windows** : télécharge `Cronos.exe` et double-clique
-            - **Mac** : télécharge `Cronos.dmg`, ouvre-le et glisse l'app dans Applications
+            - **Windows** : télécharge `CRONOS.exe` et double-clique
+            - **Mac** : télécharge `CRONOS.dmg`, ouvre-le et glisse l'app dans Applications
