@@ -1,0 +1,110 @@
+name: Build Desktop App
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'desktop/**'
+      - 'requirements.txt'
+  workflow_dispatch:  # Permet de lancer manuellement
+
+jobs:
+  # ── Build Windows .exe ──
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install pyinstaller garminconnect requests
+
+      - name: Build .exe
+        run: |
+          pyinstaller --onefile --windowed --name "Peakflow" desktop/main.py
+
+      - name: Upload .exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: Peakflow-Windows
+          path: dist/Peakflow.exe
+
+  # ── Build Mac .dmg ──
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install pyinstaller garminconnect requests
+
+      - name: Build .app
+        run: |
+          pyinstaller --onefile --windowed --name "Peakflow" desktop/main.py
+
+      - name: Create .dmg
+        run: |
+          brew install create-dmg
+          create-dmg \
+            --volname "Peakflow" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --app-drop-link 450 185 \
+            "dist/Peakflow.dmg" \
+            "dist/Peakflow.app"
+
+      - name: Upload .dmg
+        uses: actions/upload-artifact@v4
+        with:
+          name: Peakflow-Mac
+          path: dist/Peakflow.dmg
+
+  # ── Créer une Release GitHub automatiquement ──
+  release:
+    needs: [build-windows, build-mac]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Peakflow-Windows
+          path: dist/
+
+      - name: Download Mac artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Peakflow-Mac
+          path: dist/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: latest
+          name: Peakflow Desktop App
+          files: |
+            dist/Peakflow.exe
+            dist/Peakflow.dmg
+          body: |
+            ## Peakflow — Connexion montre
+
+            Télécharge l'app, connecte ta montre Garmin ou Polar, et tes données sont collectées automatiquement chaque nuit.
+
+            ### Installation
+            - **Windows** : télécharge `Peakflow.exe` et double-clique
+            - **Mac** : télécharge `Peakflow.dmg`, ouvre-le et glisse l'app dans Applications
