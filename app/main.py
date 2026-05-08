@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.db import AsyncSessionLocal, init_db
-from app.routers import data, users, polar, withings
+from app.routers import data, users, polar, withings, profile
 from app.services.collect import collect_all_users_yesterday
 
 log = logging.getLogger(__name__)
@@ -58,6 +58,7 @@ app.include_router(users.router)
 app.include_router(data.router)
 app.include_router(polar.router)
 app.include_router(withings.router)
+app.include_router(profile.router)
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 

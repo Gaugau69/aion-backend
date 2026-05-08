@@ -3,7 +3,7 @@ app/db.py — Définition des tables ORM et connexion PostgreSQL.
 """
 
 from sqlalchemy import (
-    BigInteger, Column, Date, DateTime, Float, ForeignKey,
+    BigInteger, Boolean, Column, Date, DateTime, Float, ForeignKey,
     Integer, SmallInteger, String, Text, UniqueConstraint, func,
 )
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -13,7 +13,9 @@ from app.config import settings
 
 # ── Connexion ──────────────────────────────────────────────────────────────
 
-engine = create_async_engine(settings.database_url, echo=False, pool_size=5)
+engine = create_async_engine(
+    settings.database_url, echo=False, pool_size=5, pool_pre_ping=True
+)
 
 AsyncSessionLocal = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
 
@@ -40,11 +42,13 @@ class User(Base):
     id         = Column(Integer, primary_key=True, autoincrement=True)
     name       = Column(String(100), unique=True, nullable=False, index=True)
     email      = Column(String(255), unique=True, nullable=False)
-    token_json = Column(Text, nullable=True)   # Token OAuth Garmin — jamais le mdp
+    token_json = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    daily_metrics = relationship("DailyMetric", back_populates="user", cascade="all, delete-orphan")
-    activities    = relationship("Activity",    back_populates="user", cascade="all, delete-orphan")
+    daily_metrics   = relationship("DailyMetric",   back_populates="user", cascade="all, delete-orphan")
+    activities      = relationship("Activity",      back_populates="user", cascade="all, delete-orphan")
+    athlete_profile = relationship("AthleteProfile", back_populates="user", cascade="all, delete-orphan", uselist=False)
+    planned_races   = relationship("PlannedRace",   back_populates="user", cascade="all, delete-orphan")
 
 
 class DailyMetric(Base):
@@ -109,19 +113,99 @@ class Activity(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     date    = Column(Date, nullable=False, index=True)
 
-    activity_id      = Column(BigInteger,  nullable=False)
-    activity_name    = Column(String(255), nullable=True)
-    activity_type    = Column(String(100), nullable=True)
-    start_time       = Column(String(50),  nullable=True)
-    duration_min     = Column(Float,       nullable=True)
-    distance_km      = Column(Float,       nullable=True)
-    avg_hr           = Column(Integer,     nullable=True)
-    max_hr           = Column(Integer,     nullable=True)
-    calories         = Column(Integer,     nullable=True)
-    avg_speed_kmh    = Column(Float,       nullable=True)
-    elevation_gain_m = Column(Float,       nullable=True)
-    training_effect  = Column(Float,       nullable=True)
-    vo2max           = Column(Float,       nullable=True)
+    activity_id      = Column(BigInteger,   nullable=False)
+    activity_name    = Column(String(255),  nullable=True)
+    activity_type    = Column(String(100),  nullable=True)
+    start_time       = Column(String(50),   nullable=True)
+    duration_min     = Column(Float,        nullable=True)
+    distance_km      = Column(Float,        nullable=True)
+    avg_hr           = Column(Integer,      nullable=True)
+    max_hr           = Column(Integer,      nullable=True)
+    calories         = Column(Integer,      nullable=True)
+    avg_speed_kmh    = Column(Float,        nullable=True)
+    elevation_gain_m = Column(Float,        nullable=True)
+    training_effect  = Column(Float,        nullable=True)
+    vo2max           = Column(Float,        nullable=True)
     rpe              = Column(SmallInteger, nullable=True)
 
     user = relationship("User", back_populates="activities")
+
+
+# ─────────────────────────────────────────────────────────────
+# A. Profil athlète
+# ─────────────────────────────────────────────────────────────
+
+class AthleteProfile(Base):
+    """
+    Profil sportif de l'athlète — une ligne par utilisateur.
+    Utilisé par CRONOS pour personnaliser les recommandations de séances.
+    """
+    __tablename__ = "athlete_profiles"
+
+    id      = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+
+    # Niveau et type
+    level           = Column(String(50),  nullable=True)   # debutant / intermediaire / avance / elite
+    sport_type      = Column(String(50),  nullable=True)   # route / trail / ultra / triathlon / mixte
+    years_running   = Column(Integer,     nullable=True)   # années de pratique
+
+    # Volume habituel
+    weekly_km       = Column(Float,       nullable=True)   # km/semaine habituels
+    weekly_sessions = Column(Integer,     nullable=True)   # séances/semaine habituelles
+    long_run_km     = Column(Float,       nullable=True)   # km de la sortie longue habituelle
+
+    # Performances de référence
+    vo2max_estimated = Column(Float,      nullable=True)   # VO2max estimé (depuis Garmin)
+    best_5k_min      = Column(Float,      nullable=True)   # meilleur 5km en minutes
+    best_10k_min     = Column(Float,      nullable=True)   # meilleur 10km en minutes
+    best_half_min    = Column(Float,      nullable=True)   # meilleur semi en minutes
+    best_marathon_min= Column(Float,      nullable=True)   # meilleur marathon en minutes
+
+    # Objectifs
+    primary_goal    = Column(String(100), nullable=True)   # finir / chrono / podium / progression
+    target_distance = Column(String(50),  nullable=True)   # 5k / 10k / semi / marathon / ultra
+
+    # Contraintes
+    max_weekly_km    = Column(Float,      nullable=True)   # volume max supportable
+    injury_history   = Column(Text,       nullable=True)   # historique blessures (texte libre)
+    preferred_days   = Column(String(50), nullable=True)   # jours préférés ex: "lun,mer,sam"
+
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+
+    user = relationship("User", back_populates="athlete_profile")
+
+
+# ─────────────────────────────────────────────────────────────
+# B. Courses planifiées
+# ─────────────────────────────────────────────────────────────
+
+class PlannedRace(Base):
+    """
+    Calendrier des courses à venir — plusieurs par utilisateur.
+    Utilisé par CRONOS pour adapter la périodisation.
+    """
+    __tablename__ = "planned_races"
+
+    id      = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    # Infos course
+    race_name     = Column(String(255), nullable=False)         # ex: "Marathon de Paris"
+    race_date     = Column(Date,        nullable=False, index=True)
+    distance_km   = Column(Float,       nullable=False)         # ex: 42.195
+    race_type     = Column(String(50),  nullable=True)          # route / trail / ultra / triathlon
+    elevation_m   = Column(Integer,     nullable=True)          # dénivelé+ pour trail
+
+    # Objectif
+    goal_type     = Column(String(50),  nullable=True)          # finir / chrono / podium
+    goal_time_min = Column(Float,       nullable=True)          # objectif chrono en minutes
+    priority      = Column(String(20),  nullable=True)          # A / B / C (importance de la course)
+
+    # Statut
+    is_completed  = Column(Boolean,     default=False)
+    actual_time_min = Column(Float,     nullable=True)          # temps réel après la course
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="planned_races")
