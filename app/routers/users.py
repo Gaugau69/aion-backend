@@ -95,3 +95,20 @@ async def delete_user(name: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(404, f"User '{name}' introuvable.")
     await db.delete(user)
     await db.commit()
+
+@router.get("/by-email/{email}", response_model=UserOut)
+async def get_user_by_email(email: str, db: AsyncSession = Depends(get_db)):
+    user = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
+    if not user:
+        raise HTTPException(404, f"Aucun utilisateur Peakflow avec l'email '{email}'.")
+    return _to_out(user)
+
+@router.get("/by-email/{email}/status")
+async def get_user_status_by_email(email: str, db: AsyncSession = Depends(get_db)):
+    user = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
+    return {
+        "registered": bool(user),
+        "has_token": bool(user and user.token_json),
+        "name": user.name if user else None,
+        "id": user.id if user else None,
+    }
