@@ -4,7 +4,7 @@ app/db.py — Définition des tables ORM et connexion PostgreSQL.
 
 from sqlalchemy import (
     BigInteger, Column, Date, DateTime, Float, ForeignKey,
-    Integer, String, Text, UniqueConstraint, func,
+    Integer, SmallInteger, String, Text, UniqueConstraint, func,
 )
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, relationship, sessionmaker
@@ -122,5 +122,6 @@ class Activity(Base):
     elevation_gain_m = Column(Float,       nullable=True)
     training_effect  = Column(Float,       nullable=True)
     vo2max           = Column(Float,       nullable=True)
+    rpe              = Column(SmallInteger, nullable=True)
 
     user = relationship("User", back_populates="activities")

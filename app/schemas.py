@@ -82,6 +82,7 @@ class ActivityOut(BaseModel):
     elevation_gain_m: Optional[float] = None
     training_effect: Optional[float] = None
     vo2max: Optional[float] = None
+    rpe: Optional[int] = None
 
     class Config:
         from_attributes = True
