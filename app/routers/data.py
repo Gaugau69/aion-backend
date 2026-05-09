@@ -271,3 +271,137 @@ async def recommend_sessions(
         },
         "recommendations": recommendations,
     }
+
+# Routes supplémentaires à ajouter à la fin de app/routers/data.py
+
+# ─────────────────────────────────────────────────────────────
+# RECOVERY SCORE — Score de récupération du jour
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/users/{name}/recovery-score")
+async def get_recovery_score(
+    name: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Retourne le score de récupération du jour pour un utilisateur.
+    Score composite basé sur HRV, sleep score et body battery.
+    """
+    import numpy as np
+
+    user = await _get_user(db, name)
+
+    since = date.today() - timedelta(days=15)
+    metrics = (await db.execute(
+        select(DailyMetric)
+        .where(DailyMetric.user_id == user.id)
+        .where(DailyMetric.date >= since)
+        .order_by(DailyMetric.date.desc())
+    )).scalars().all()
+
+    if not metrics:
+        return {"user": name, "score": None, "level": None, "message": "Pas de données disponibles"}
+
+    recovery, signals = _compute_recovery(metrics)
+
+    return {
+        "user":  name,
+        "date":  date.today().isoformat(),
+        "score": round(recovery * 100, 1),
+        "level": (
+            "Excellente" if recovery >= 0.75 else
+            "Bonne"      if recovery >= 0.55 else
+            "Moyenne"    if recovery >= 0.4  else
+            "Faible"
+        ),
+        **signals,
+    }
+
+
+# ─────────────────────────────────────────────────────────────
+# TRENDS — Tendances sur 30 jours
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/users/{name}/trends")
+async def get_trends(
+    name: str,
+    days: int = Query(30, ge=7, le=90, description="Période d'analyse en jours"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Retourne les tendances physiologiques sur N jours.
+    Utile pour afficher des graphiques sur le site.
+    """
+    user = await _get_user(db, name)
+
+    since = date.today() - timedelta(days=days)
+    metrics = (await db.execute(
+        select(DailyMetric)
+        .where(DailyMetric.user_id == user.id)
+        .where(DailyMetric.date >= since)
+        .order_by(DailyMetric.date.asc())
+    )).scalars().all()
+
+    if not metrics:
+        raise HTTPException(404, "Pas de données disponibles.")
+
+    # Série temporelle
+    series = []
+    for m in metrics:
+        series.append({
+            "date":          m.date.isoformat(),
+            "hrv":           float(m.hrv_last_night)      if m.hrv_last_night      else None,
+            "resting_hr":    int(m.resting_hr)            if m.resting_hr          else None,
+            "sleep_score":   int(m.sleep_score)           if m.sleep_score         else None,
+            "sleep_min":     int(m.sleep_duration_min)    if m.sleep_duration_min  else None,
+            "body_battery":  int(m.body_battery_charged)  if m.body_battery_charged else None,
+            "steps":         int(m.total_steps)           if m.total_steps         else None,
+            "stress":        int(m.avg_stress)            if m.avg_stress          else None,
+        })
+
+    # Statistiques résumées
+    hrv_vals    = [s["hrv"]          for s in series if s["hrv"]]
+    sleep_vals  = [s["sleep_score"]  for s in series if s["sleep_score"]]
+    hr_vals     = [s["resting_hr"]   for s in series if s["resting_hr"]]
+
+    import numpy as np
+
+    summary = {
+        "hrv": {
+            "mean":  round(float(np.mean(hrv_vals)),   1) if hrv_vals  else None,
+            "min":   round(float(np.min(hrv_vals)),    1) if hrv_vals  else None,
+            "max":   round(float(np.max(hrv_vals)),    1) if hrv_vals  else None,
+            "trend": _compute_trend(hrv_vals),
+        },
+        "sleep_score": {
+            "mean":  round(float(np.mean(sleep_vals)), 1) if sleep_vals else None,
+            "trend": _compute_trend(sleep_vals),
+        },
+        "resting_hr": {
+            "mean":  round(float(np.mean(hr_vals)),    1) if hr_vals   else None,
+            "trend": _compute_trend(hr_vals),
+        },
+    }
+
+    return {
+        "user":    name,
+        "period":  f"{since.isoformat()} → {date.today().isoformat()}",
+        "n_days":  len(series),
+        "summary": summary,
+        "series":  series,
+    }
+
+
+def _compute_trend(values: list) -> str:
+    """Calcule la tendance : hausse / stable / baisse."""
+    if len(values) < 5:
+        return "stable"
+    import numpy as np
+    first_half = np.mean(values[:len(values)//2])
+    second_half = np.mean(values[len(values)//2:])
+    diff = (second_half - first_half) / (first_half + 1e-6)
+    if diff > 0.05:
+        return "hausse"
+    elif diff < -0.05:
+        return "baisse"
+    return "stable"
