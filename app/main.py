@@ -11,6 +11,7 @@ from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.db import AsyncSessionLocal, init_db
@@ -62,6 +63,12 @@ app.include_router(profile.router)
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/", include_in_schema=False)
 async def serve_landing():
@@ -76,3 +83,7 @@ async def serve_connect():
 @app.get("/health", tags=["health"])
 async def health():
     return {"status": "ok"}
+
+@app.get("/cronos", include_in_schema=False)
+async def serve_cronos():
+    return FileResponse(STATIC_DIR / "cronos.html")

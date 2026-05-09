@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PEAKFLOW | CRONOS</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@300;400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --green: #10B981;
+  --bg: #0a0e1a;
+  --bg2: #0f1524;
+  --text: #f5f5f0;
+  --muted: rgba(245,245,240,0.45);
+  --border: rgba(255,255,255,0.07);
+}
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+nav { display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 2.5rem; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: rgba(10,14,26,0.92); backdrop-filter: blur(12px); z-index: 100; }
+.nav-brand { font-family: 'Syne', sans-serif; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.25em; text-transform: uppercase; }
+.nav-links { display: flex; gap: 2.5rem; list-style: none; }
+.nav-links a { font-size: 0.8rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); text-decoration: none; transition: color 0.2s; }
+.nav-links a.active, .nav-links a:hover { color: var(--text); }
+.nav-links a.active { border-bottom: 1px solid var(--text); padding-bottom: 2px; }
+main { max-width: 1100px; margin: 0 auto; padding: 4rem 2.5rem 8rem; }
+
+.login-wrap { min-height: 70vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 2.5rem; }
+.hero-label { font-size: 0.7rem; letter-spacing: 0.3em; text-transform: uppercase; color: var(--muted); }
+.hero-title { font-family: 'Syne', sans-serif; font-size: clamp(5rem, 14vw, 9rem); font-weight: 800; letter-spacing: -0.02em; line-height: 0.9; }
+.hero-sub { font-size: 0.95rem; color: var(--muted); line-height: 1.8; max-width: 420px; font-weight: 300; }
+.badge-pill { display: inline-flex; align-items: center; gap: 0.6rem; border: 1px solid rgba(16,185,129,0.3); border-radius: 999px; padding: 0.45rem 1.25rem; font-size: 0.75rem; letter-spacing: 0.1em; }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.login-form { display: flex; flex-direction: column; gap: 0.75rem; width: 100%; max-width: 380px; }
+.input-field { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 0.9rem 1.25rem; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 300; outline: none; transition: border-color 0.2s; width: 100%; }
+.input-field:focus { border-color: rgba(16,185,129,0.4); }
+.input-field::placeholder { color: var(--muted); }
+.btn-main { background: var(--green); color: #060d0a; border: none; border-radius: 6px; padding: 0.9rem; font-family: 'Syne', sans-serif; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; transition: opacity 0.2s; width: 100%; }
+.btn-main:hover { opacity: 0.88; }
+.btn-main:disabled { opacity: 0.35; cursor: not-allowed; }
+.err { font-size: 0.75rem; color: #f87171; text-align: center; }
+
+.dash { display: none; flex-direction: column; }
+.dash.on { display: flex; }
+.sec-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+.sec-title { font-family: 'Syne', sans-serif; font-size: clamp(1.8rem, 4vw, 2.8rem); font-weight: 700; letter-spacing: -0.02em; text-transform: uppercase; }
+.sec-label { font-size: 0.7rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--muted); }
+
+.recovery-hero { padding: 4rem 0; border-bottom: 1px solid var(--border); margin-bottom: 4rem; display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
+.recovery-score-big { font-family: 'Syne', sans-serif; font-size: clamp(7rem, 18vw, 12rem); font-weight: 800; letter-spacing: -0.04em; line-height: 0.85; color: var(--green); transition: color 0.5s; }
+.recovery-label-big { font-size: 0.7rem; letter-spacing: 0.3em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.5rem; }
+.recovery-level-text { font-family: 'Syne', sans-serif; font-size: 2rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2rem; }
+.signal-row { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid var(--border); }
+.signal-name { font-size: 0.75rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); }
+.signal-val { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 600; }
+
+.sessions-section { margin-bottom: 4rem; }
+.session-row { display: grid; grid-template-columns: 3rem 1fr auto; gap: 2rem; align-items: center; padding: 1.75rem 0; border-bottom: 1px solid var(--border); animation: fadeUp 0.4s ease forwards; opacity: 0; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
+.session-num { font-family: 'Syne', sans-serif; font-size: 2rem; font-weight: 800; color: rgba(255,255,255,0.08); text-align: center; transition: color 0.2s; }
+.session-row:hover .session-num { color: var(--green); }
+.session-name { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; margin-bottom: 0.3rem; }
+.session-meta { font-size: 0.8rem; color: var(--muted); font-weight: 300; margin-bottom: 0.5rem; }
+.session-tags { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.tag { font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.2rem 0.6rem; border: 1px solid var(--border); border-radius: 3px; color: var(--muted); }
+.tag-g { border-color: rgba(16,185,129,0.3); color: var(--green); }
+.session-score-col { text-align: right; }
+.session-score-num { font-family: 'Syne', sans-serif; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.02em; }
+.score-slash { color: var(--muted); font-size: 1rem; font-weight: 300; }
+
+.trends-section { margin-bottom: 4rem; }
+.trends-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); }
+.trend-cell { background: var(--bg); padding: 2rem; }
+.trend-name { font-size: 0.65rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--muted); margin-bottom: 1rem; }
+.trend-val { font-family: 'Syne', sans-serif; font-size: 3rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1; margin-bottom: 0.75rem; }
+.trend-badge { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.2rem 0.6rem; border-radius: 3px; display: inline-block; }
+.t-up { background: rgba(16,185,129,0.1); color: var(--green); }
+.t-down { background: rgba(248,113,113,0.1); color: #f87171; }
+.t-stable { background: rgba(255,255,255,0.05); color: var(--muted); }
+
+.loading { padding: 3rem 0; display: flex; align-items: center; gap: 1rem; color: var(--muted); font-size: 0.8rem; letter-spacing: 0.15em; text-transform: uppercase; }
+.spinner { width:14px;height:14px;border:1.5px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin 0.7s linear infinite; }
+@keyframes spin { to{transform:rotate(360deg)} }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">Peakflow Technologies</div>
+  <ul class="nav-links">
+    <li><a href="#">Tableau de bord</a></li>
+    <li><a href="#">Kairos</a></li>
+    <li><a href="#">Aion</a></li>
+    <li><a href="#" class="active">Cronos</a></li>
+    <li><a href="#" id="nav-logout" style="display:none" onclick="location.reload()">Déconnexion</a></li>
+  </ul>
+</nav>
+
+<main>
+
+  <!-- LOGIN -->
+  <div class="login-wrap" id="login-wrap">
+    <div class="hero-label">Peakflow Technologies présente</div>
+    <div class="hero-title">CRONOS</div>
+    <div class="badge-pill"><div class="dot"></div><span>6 coureurs contribuent déjà au modèle</span></div>
+    <p class="hero-sub">Intelligence artificielle pour la récupération sportive des athlètes d'endurance.</p>
+    <div class="login-form">
+      <input class="input-field" id="name-input" type="text" placeholder="Ton prénom (ex: Emmanuel)" autocomplete="off" />
+      <button class="btn-main" id="login-btn" onclick="loadDash()">Accéder à mes données</button>
+      <p class="err" id="err-msg" style="display:none"></p>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="dash" id="dashboard">
+
+    <!-- RECOVERY -->
+    <div class="recovery-hero">
+      <div>
+        <div class="recovery-label-big">Récupération — aujourd'hui</div>
+        <div class="recovery-level-text" id="rec-level">—</div>
+        <div id="signals-list"><div class="loading"><div class="spinner"></div>Analyse des signaux...</div></div>
+      </div>
+      <div style="text-align:right">
+        <div class="recovery-score-big" id="rec-score">—</div>
+        <div style="font-size:0.7rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);margin-top:0.5rem">Score /100</div>
+      </div>
+    </div>
+
+    <!-- SESSIONS -->
+    <div class="sessions-section">
+      <div class="sec-head">
+        <div class="sec-title">Séances</div>
+        <div class="sec-label">Recommandées pour aujourd'hui</div>
+      </div>
+      <div id="sessions-wrap"><div class="loading"><div class="spinner"></div>CRONOS calcule les séances optimales...</div></div>
+    </div>
+
+    <!-- TRENDS -->
+    <div class="trends-section">
+      <div class="sec-head">
+        <div class="sec-title">Tendances</div>
+        <div class="sec-label">30 derniers jours</div>
+      </div>
+      <div id="trends-wrap"><div class="loading"><div class="spinner"></div>Chargement des tendances...</div></div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+const BACKEND = 'https://web-production-3668.up.railway.app';
+const CAT = { endurance:'Endurance', intensite:'Intensité', recuperation:'Récupération', force:'Force', specifique:'Spécifique' };
+
+function showErr(m) { const e=document.getElementById('err-msg'); e.textContent=m; e.style.display='block'; }
+function hideErr() { document.getElementById('err-msg').style.display='none'; }
+
+async function loadDash() {
+  const name = document.getElementById('name-input').value.trim();
+  if (!name) { showErr('Entre ton prénom.'); return; }
+  hideErr();
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true; btn.textContent = 'Connexion...';
+  try {
+    const check = await fetch(`${BACKEND}/users/${encodeURIComponent(name)}`);
+    if (!check.ok) { showErr(`"${name}" introuvable — connecte d'abord ta montre.`); btn.disabled=false; btn.textContent='Accéder à mes données'; return; }
+    document.getElementById('login-wrap').style.display = 'none';
+    document.getElementById('dashboard').classList.add('on');
+    document.getElementById('nav-logout').style.display = 'block';
+    Promise.all([loadRecovery(name), loadSessions(name), loadTrends(name)]);
+  } catch(e) {
+    showErr('Erreur de connexion.'); btn.disabled=false; btn.textContent='Accéder à mes données';
+  }
+}
+
+async function loadRecovery(name) {
+  try {
+    const r = await fetch(`${BACKEND}/users/${encodeURIComponent(name)}/recovery-score`);
+    const d = await r.json();
+    const score = d.score ?? 50;
+    const color = score >= 65 ? '#10B981' : score >= 45 ? '#f59e0b' : '#f87171';
+    document.getElementById('rec-score').textContent = Math.round(score);
+    document.getElementById('rec-score').style.color = color;
+    document.getElementById('rec-level').textContent = d.level ?? '—';
+    const rows = [];
+    if (d.hrv_today) rows.push({ n:'HRV nocturne', v:`${d.hrv_today} ms`, sub: d.hrv_mean ? `moy. ${d.hrv_mean} ms` : null });
+    if (d.sleep_score) rows.push({ n:'Score sommeil', v:`${d.sleep_score} / 100` });
+    if (d.body_battery) rows.push({ n:'Body battery', v:`${d.body_battery} / 100` });
+    if (!rows.length) rows.push({ n:'Signaux disponibles', v:'0 / 3', sub:'Données collectées cette nuit' });
+    document.getElementById('signals-list').innerHTML = rows.map(r => `
+      <div class="signal-row">
+        <div class="signal-name">${r.n}${r.sub ? `<br><span style="font-size:0.65rem;opacity:0.5">${r.sub}</span>` : ''}</div>
+        <div class="signal-val" style="color:${color}">${r.v}</div>
+      </div>`).join('');
+  } catch(e) {
+    document.getElementById('signals-list').innerHTML = '<div style="color:#f87171;font-size:0.8rem;padding:1rem 0">Erreur de chargement</div>';
+  }
+}
+
+async function loadSessions(name) {
+  try {
+    const r = await fetch(`${BACKEND}/users/${encodeURIComponent(name)}/recommend?top_k=5`);
+    const d = await r.json();
+    const recs = d.recommendations ?? [];
+    document.getElementById('sessions-wrap').innerHTML = recs.map((rec, i) => `
+      <div class="session-row" style="animation-delay:${i*0.07}s">
+        <div class="session-num">0${rec.rank}</div>
+        <div>
+          <div class="session-name">${rec.name}</div>
+          <div class="session-meta">${rec.description}</div>
+          <div class="session-tags">
+            <span class="tag tag-g">${CAT[rec.category]??rec.category}</span>
+            <span class="tag">${rec.duration_min} min</span>
+            ${rec.distance_km > 0 ? `<span class="tag">${rec.distance_km} km</span>` : ''}
+            <span class="tag">${rec.example}</span>
+          </div>
+        </div>
+        <div class="session-score-col">
+          <div class="session-score-num">${Math.round(rec.score)}<span class="score-slash">/100</span></div>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    document.getElementById('sessions-wrap').innerHTML = '<div style="color:#f87171;font-size:0.8rem;padding:1rem 0">Erreur de chargement</div>';
+  }
+}
+
+async function loadTrends(name) {
+  try {
+    const r = await fetch(`${BACKEND}/users/${encodeURIComponent(name)}/trends?days=30`);
+    const d = await r.json();
+    const s = d.summary ?? {};
+    const metrics = [
+      { key:'hrv', label:'HRV moyen', unit:'ms' },
+      { key:'sleep_score', label:'Score sommeil', unit:'/100' },
+      { key:'resting_hr', label:'FC repos', unit:'bpm' },
+    ];
+    document.getElementById('trends-wrap').innerHTML = `<div class="trends-grid">` + metrics.map(m => {
+      const md = s[m.key] ?? {};
+      const val = md.mean ? Math.round(md.mean) : null;
+      const trend = md.trend ?? 'stable';
+      const tc = trend==='hausse'?'t-up':trend==='baisse'?'t-down':'t-stable';
+      const tl = trend==='hausse'?'↑ Hausse':trend==='baisse'?'↓ Baisse':'→ Stable';
+      return `<div class="trend-cell">
+        <div class="trend-name">${m.label}</div>
+        <div class="trend-val">${val ? val + m.unit : '—'}</div>
+        ${val ? `<span class="trend-badge ${tc}">${tl}</span>` : '<span style="font-size:0.7rem;color:var(--muted)">Données insuffisantes</span>'}
+      </div>`;
+    }).join('') + `</div>`;
+  } catch(e) {
+    document.getElementById('trends-wrap').innerHTML = '<div style="color:#f87171;font-size:0.8rem;padding:1rem 0">Erreur</div>';
+  }
+}
+
+document.getElementById('name-input').addEventListener('keydown', e => { if(e.key==='Enter') loadDash(); });
+</script>
+</body>
+</html>
