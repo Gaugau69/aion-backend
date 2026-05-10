@@ -1,7 +1,7 @@
 """
 app/routers/data.py — Collecte manuelle et lecture des données stockées.
 """
-import numpy as np
+
 from datetime import date, timedelta
 from typing import Optional
 
@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db import Activity, DailyMetric, User, get_db
+from app.db import Activity, DailyMetric, PlannedRace, User, get_db
 from app.schemas import ActivityOut, CollectRequest, DailyMetricOut
 from app.services.collect import collect_user_range
 
@@ -71,7 +71,7 @@ async def get_activities(
 
 class RPEItem(BaseModel):
     activity_id: int
-    rpe: int  # 1-10
+    rpe: int
 
 
 class RPEPayload(BaseModel):
@@ -82,24 +82,17 @@ class RPEPayload(BaseModel):
 @router.get("/users/{name}/activities/recent", response_model=list[ActivityOut])
 async def get_recent_activities(
     name: str,
-    days: int = Query(3, description="Nombre de jours en arrière"),
+    days: int = Query(3),
     db: AsyncSession = Depends(get_db),
 ):
-    """Retourne les séances des N derniers jours pour affichage RPE."""
     user = await _get_user(db, name)
     since = date.today() - timedelta(days=days)
-    q = (
-        select(Activity)
-        .where(Activity.user_id == user.id)
-        .where(Activity.date >= since)
-        .order_by(Activity.date.desc())
-    )
+    q = select(Activity).where(Activity.user_id == user.id).where(Activity.date >= since).order_by(Activity.date.desc())
     return (await db.execute(q)).scalars().all()
 
 
 @router.post("/rpe")
 async def submit_rpe(payload: RPEPayload, db: AsyncSession = Depends(get_db)):
-    """Enregistre les notes RPE pour les séances d'un utilisateur."""
     user = await _get_user(db, payload.name)
     updated = 0
     for item in payload.ratings:
@@ -115,133 +108,216 @@ async def submit_rpe(payload: RPEPayload, db: AsyncSession = Depends(get_db)):
     await db.commit()
     return {"status": "ok", "updated": updated}
 
+
 # ─────────────────────────────────────────────────────────────
-# RECOMMEND — Recommandation de séances CRONOS
+# Catalogue 45 séances CRONOS v2
 # ─────────────────────────────────────────────────────────────
 
-# Ajoute en haut de data.py :
-# import numpy as np
-
-SESSIONS = [
-    {"id": 0,  "name": "Récupération active",    "category": "recuperation", "intensity": 0.2, "duration_min": 40,  "distance_km": 6,  "description": "Footing très lent Z1, conversations possibles", "example": "40min à 6:30/km"},
-    {"id": 1,  "name": "Sortie longue Z2",        "category": "endurance",    "intensity": 0.4, "duration_min": 120, "distance_km": 20, "description": "Course longue en zone aérobie, allure confort", "example": "2h à 5:30/km"},
-    {"id": 2,  "name": "Sortie longue trail",     "category": "endurance",    "intensity": 0.4, "duration_min": 150, "distance_km": 25, "description": "Sortie longue en nature avec dénivelé", "example": "2h30 avec 800m D+"},
-    {"id": 3,  "name": "Tempo continu",           "category": "intensite",    "intensity": 0.7, "duration_min": 50,  "distance_km": 10, "description": "Course soutenue au seuil anaérobie", "example": "50min à 4:20/km"},
-    {"id": 4,  "name": "Fractionné court",        "category": "intensite",    "intensity": 0.9, "duration_min": 55,  "distance_km": 10, "description": "Répétitions courtes à haute intensité", "example": "10x400m avec récup 90s"},
-    {"id": 5,  "name": "Fractionné long",         "category": "intensite",    "intensity": 0.8, "duration_min": 60,  "distance_km": 12, "description": "Répétitions longues au seuil", "example": "5x1000m avec récup 2min"},
-    {"id": 6,  "name": "Côtes",                   "category": "force",        "intensity": 0.85,"duration_min": 50,  "distance_km": 8,  "description": "Répétitions en montée pour la force", "example": "10x200m de côte"},
-    {"id": 7,  "name": "Fartlek",                 "category": "intensite",    "intensity": 0.7, "duration_min": 55,  "distance_km": 10, "description": "Variations libres d'allure", "example": "55min avec accélérations libres"},
-    {"id": 8,  "name": "Progression",             "category": "endurance",    "intensity": 0.6, "duration_min": 60,  "distance_km": 12, "description": "Course avec augmentation progressive de l'allure", "example": "60min en finissant vite"},
-    {"id": 9,  "name": "Endurance fondamentale",  "category": "endurance",    "intensity": 0.5, "duration_min": 75,  "distance_km": 13, "description": "Course à allure modérée Z2/Z3", "example": "75min à 5:00/km"},
-    {"id": 10, "name": "Spécifique marathon",     "category": "specifique",   "intensity": 0.7, "duration_min": 90,  "distance_km": 18, "description": "Allure marathon en condition de course", "example": "90min à allure objectif"},
-    {"id": 11, "name": "Spécifique semi",         "category": "specifique",   "intensity": 0.75,"duration_min": 70,  "distance_km": 14, "description": "Allure semi-marathon en condition de course", "example": "70min à allure objectif"},
-    {"id": 12, "name": "Spécifique 10km",         "category": "specifique",   "intensity": 0.8, "duration_min": 55,  "distance_km": 11, "description": "Allure 10km en condition de course", "example": "55min à allure objectif"},
-    {"id": 13, "name": "Trail technique",         "category": "specifique",   "intensity": 0.6, "duration_min": 90,  "distance_km": 15, "description": "Travail technique en terrain varié", "example": "90min sur sentiers techniques"},
-    {"id": 14, "name": "Ultra endurance",         "category": "endurance",    "intensity": 0.4, "duration_min": 240, "distance_km": 40, "description": "Sortie très longue pour ultra-trail", "example": "4h avec 1500m D+"},
-    {"id": 15, "name": "Gainage et renforcement", "category": "force",        "intensity": 0.4, "duration_min": 45,  "distance_km": 0,  "description": "Séance de renforcement musculaire", "example": "45min PPG/gainage"},
-    {"id": 16, "name": "Mobilité et récupération","category": "recuperation", "intensity": 0.1, "duration_min": 30,  "distance_km": 0,  "description": "Stretching, yoga, mobilité", "example": "30min yoga/stretching"},
-    {"id": 17, "name": "Seuil lactique",          "category": "intensite",    "intensity": 0.75,"duration_min": 55,  "distance_km": 11, "description": "Course au seuil lactique", "example": "20min échauffement + 3x10min seuil"},
-    {"id": 18, "name": "VO2max",                  "category": "intensite",    "intensity": 0.95,"duration_min": 50,  "distance_km": 10, "description": "Intervalles à VO2max", "example": "6x3min à 95% FCmax"},
-    {"id": 19, "name": "Cross-training",          "category": "recuperation", "intensity": 0.2, "duration_min": 45,  "distance_km": 0,  "description": "Natation, vélo, elliptique", "example": "45min vélo ou natation"},
+SESSIONS_V2 = [
+    {"id":0,  "name":"Repos complet",              "category":"repos",        "intensity":0.0,  "duration_min":0,   "distance_km":0,  "recovery_cost":0.0,  "min_level":0, "description":"Journée sans activité — récupération maximale.",                  "example":"Marche légère si besoin, pas de course"},
+    {"id":1,  "name":"Récupération passive",        "category":"repos",        "intensity":0.05, "duration_min":20,  "distance_km":0,  "recovery_cost":0.0,  "min_level":0, "description":"Yoga, étirements, mobilité — aucun effort cardio.",              "example":"20min yoga ou étirements doux"},
+    {"id":2,  "name":"Footing de récupération",     "category":"recuperation", "intensity":0.2,  "duration_min":30,  "distance_km":5,  "recovery_cost":0.1,  "min_level":0, "description":"Course très lente, on peut tenir une conversation.",              "example":"30min très lentement"},
+    {"id":3,  "name":"Sortie plaisir",              "category":"recuperation", "intensity":0.25, "duration_min":40,  "distance_km":6,  "recovery_cost":0.15, "min_level":0, "description":"Sans chrono ni objectif — juste profiter.",                       "example":"40min à l'aise, sans regarder la vitesse"},
+    {"id":4,  "name":"Cross-training vélo",         "category":"recuperation", "intensity":0.25, "duration_min":45,  "distance_km":0,  "recovery_cost":0.1,  "min_level":0, "description":"Vélo, elliptique ou natation — entretient la forme sans impact.", "example":"45min vélo ou elliptique tranquille"},
+    {"id":5,  "name":"Natation récupération",       "category":"recuperation", "intensity":0.2,  "duration_min":40,  "distance_km":0,  "recovery_cost":0.05, "min_level":0, "description":"Natation lente — parfait après une semaine chargée.",             "example":"40min nage libre tranquille"},
+    {"id":6,  "name":"Mobilité et souplesse",       "category":"recuperation", "intensity":0.1,  "duration_min":30,  "distance_km":0,  "recovery_cost":0.0,  "min_level":0, "description":"Étirements, foam roller, mobilité articulaire.",                  "example":"30min yoga running ou étirements"},
+    {"id":7,  "name":"ABC de course",               "category":"force",        "intensity":0.4,  "duration_min":30,  "distance_km":4,  "recovery_cost":0.2,  "min_level":0, "description":"Exercices techniques — améliore la foulée et l'économie.",        "example":"Échauffement + ABC + 15min facile"},
+    {"id":8,  "name":"Sortie courte endurance",     "category":"endurance",    "intensity":0.35, "duration_min":30,  "distance_km":5,  "recovery_cost":0.2,  "min_level":0, "description":"Course courte à allure facile — idéale semaines chargées.",       "example":"30min à allure confortable"},
+    {"id":9,  "name":"Endurance fondamentale",      "category":"endurance",    "intensity":0.45, "duration_min":60,  "distance_km":10, "recovery_cost":0.3,  "min_level":0, "description":"La base de tout plan — allure modérée Z2.",                       "example":"60min à allure confort"},
+    {"id":10, "name":"Sortie longue débutant",      "category":"endurance",    "intensity":0.35, "duration_min":60,  "distance_km":8,  "recovery_cost":0.35, "min_level":0, "description":"Sortie longue accessible — marche/course si besoin.",             "example":"60min marche/course alternée"},
+    {"id":11, "name":"Sortie longue Z2",            "category":"endurance",    "intensity":0.4,  "duration_min":90,  "distance_km":15, "recovery_cost":0.4,  "min_level":1, "description":"Course longue aérobie — construit l'endurance de fond.",           "example":"90min à allure endurance"},
+    {"id":12, "name":"Sortie longue progressive",   "category":"endurance",    "intensity":0.55, "duration_min":90,  "distance_km":16, "recovery_cost":0.5,  "min_level":1, "description":"Commence lentement, finit plus vite.",                            "example":"90min : 60min facile + 30min plus soutenu"},
+    {"id":13, "name":"Sortie très longue",          "category":"endurance",    "intensity":0.4,  "duration_min":150, "distance_km":25, "recovery_cost":0.65, "min_level":2, "description":"Sortie longue pour coureurs expérimentés.",                       "example":"2h30 à allure endurance"},
+    {"id":14, "name":"Trail découverte",            "category":"endurance",    "intensity":0.4,  "duration_min":60,  "distance_km":10, "recovery_cost":0.35, "min_level":0, "description":"Première sortie en nature — marche dans les montées.",            "example":"60min trail avec marche dans les côtes"},
+    {"id":15, "name":"Trail technique",             "category":"specifique",   "intensity":0.55, "duration_min":90,  "distance_km":14, "recovery_cost":0.5,  "min_level":1, "description":"Technique en terrain varié — descentes, sentiers.",               "example":"90min trail avec dénivelé modéré"},
+    {"id":16, "name":"Sortie longue trail",         "category":"endurance",    "intensity":0.4,  "duration_min":150, "distance_km":22, "recovery_cost":0.55, "min_level":1, "description":"Sortie longue en montagne — marche/course selon dénivelé.",        "example":"2h30 avec dénivelé"},
+    {"id":17, "name":"Power hiking",               "category":"force",        "intensity":0.45, "duration_min":60,  "distance_km":8,  "recovery_cost":0.4,  "min_level":0, "description":"Marche rapide en côte — technique ultra, préserve les jambes.",   "example":"60min randonnée rapide en montée"},
+    {"id":18, "name":"Ultra endurance",             "category":"endurance",    "intensity":0.35, "duration_min":240, "distance_km":40, "recovery_cost":0.85, "min_level":2, "description":"Sortie très longue préparation ultra.",                           "example":"4h avec dénivelé important"},
+    {"id":19, "name":"Tempo court",                "category":"intensite",    "intensity":0.65, "duration_min":40,  "distance_km":8,  "recovery_cost":0.5,  "min_level":1, "description":"Course soutenue courte au seuil.",                                 "example":"40min : échauffement + 20min tempo + retour"},
+    {"id":20, "name":"Tempo continu",              "category":"intensite",    "intensity":0.7,  "duration_min":55,  "distance_km":10, "recovery_cost":0.6,  "min_level":1, "description":"Course soutenue au seuil anaérobie.",                              "example":"55min à allure semi-marathon"},
+    {"id":21, "name":"Tempo long",                 "category":"intensite",    "intensity":0.68, "duration_min":70,  "distance_km":13, "recovery_cost":0.65, "min_level":2, "description":"Tempo étendu — résistance à l'allure.",                            "example":"70min : échauffement + 45min tempo + retour"},
+    {"id":22, "name":"Progression",                "category":"endurance",    "intensity":0.55, "duration_min":60,  "distance_km":11, "recovery_cost":0.45, "min_level":1, "description":"Allure croissante — finit fort.",                                  "example":"60min en accélérant progressivement"},
+    {"id":23, "name":"Fractionné débutant",        "category":"intensite",    "intensity":0.7,  "duration_min":40,  "distance_km":6,  "recovery_cost":0.5,  "min_level":0, "description":"Introduction au fractionné — courtes accélérations.",              "example":"40min : 8x200m rapide avec 2min marche"},
+    {"id":24, "name":"Fractionné court",           "category":"intensite",    "intensity":0.85, "duration_min":50,  "distance_km":9,  "recovery_cost":0.65, "min_level":1, "description":"Répétitions courtes haute intensité.",                             "example":"50min : 10x400m avec récupération"},
+    {"id":25, "name":"Fractionné long",            "category":"intensite",    "intensity":0.78, "duration_min":60,  "distance_km":11, "recovery_cost":0.65, "min_level":1, "description":"Répétitions longues au seuil.",                                    "example":"60min : 5x1000m avec récupération"},
+    {"id":26, "name":"VO2max",                     "category":"intensite",    "intensity":0.95, "duration_min":50,  "distance_km":9,  "recovery_cost":0.8,  "min_level":2, "description":"Intervalles à intensité maximale aérobie.",                        "example":"50min : 6x3min à intensité maximale"},
+    {"id":27, "name":"30-30",                      "category":"intensite",    "intensity":0.85, "duration_min":40,  "distance_km":7,  "recovery_cost":0.6,  "min_level":1, "description":"30s vite / 30s lent — VO2max accessible.",                         "example":"40min : 20x(30s rapide + 30s trot)"},
+    {"id":28, "name":"Pyramide",                   "category":"intensite",    "intensity":0.8,  "duration_min":55,  "distance_km":10, "recovery_cost":0.65, "min_level":1, "description":"Fractionné pyramidal.",                                            "example":"200-400-600-800-600-400-200m"},
+    {"id":29, "name":"Fartlek",                    "category":"intensite",    "intensity":0.65, "duration_min":50,  "distance_km":9,  "recovery_cost":0.5,  "min_level":0, "description":"Jeu de vitesse libre — accélérations spontanées.",                 "example":"50min avec accélérations quand tu veux"},
+    {"id":30, "name":"Côtes courtes",              "category":"force",        "intensity":0.85, "duration_min":45,  "distance_km":7,  "recovery_cost":0.65, "min_level":0, "description":"Répétitions en montée courte — puissance et force.",               "example":"45min : 8-10x100m de côte raide"},
+    {"id":31, "name":"Côtes longues",              "category":"force",        "intensity":0.78, "duration_min":55,  "distance_km":9,  "recovery_cost":0.7,  "min_level":1, "description":"Répétitions en montée longue — endurance musculaire.",             "example":"55min : 6x400m côte"},
+    {"id":32, "name":"Allure 5km",                 "category":"specifique",   "intensity":0.85, "duration_min":45,  "distance_km":9,  "recovery_cost":0.6,  "min_level":1, "description":"Travail à allure 5km.",                                            "example":"45min : 3-4x1600m à allure cible"},
+    {"id":33, "name":"Allure 10km",                "category":"specifique",   "intensity":0.78, "duration_min":55,  "distance_km":11, "recovery_cost":0.6,  "min_level":1, "description":"Travail à allure 10km.",                                           "example":"55min : 3x2km à allure cible"},
+    {"id":34, "name":"Allure semi-marathon",       "category":"specifique",   "intensity":0.7,  "duration_min":75,  "distance_km":14, "recovery_cost":0.6,  "min_level":1, "description":"Allure semi en condition de course.",                              "example":"75min dont 40min à allure cible"},
+    {"id":35, "name":"Allure marathon",            "category":"specifique",   "intensity":0.65, "duration_min":100, "distance_km":20, "recovery_cost":0.65, "min_level":2, "description":"La séance clé de la préparation marathon.",                        "example":"100min dont 60min à allure cible"},
+    {"id":36, "name":"Allure première course",     "category":"specifique",   "intensity":0.6,  "duration_min":45,  "distance_km":7,  "recovery_cost":0.4,  "min_level":0, "description":"Courir à l'allure de ta prochaine course — sans s'épuiser.",       "example":"45min à l'allure envisagée pour ta course"},
+    {"id":37, "name":"Seuil lactique court",       "category":"intensite",    "intensity":0.72, "duration_min":45,  "distance_km":8,  "recovery_cost":0.55, "min_level":1, "description":"Travail au seuil lactique.",                                       "example":"45min : 2x15min seuil avec récupération"},
+    {"id":38, "name":"Seuil lactique long",        "category":"intensite",    "intensity":0.75, "duration_min":65,  "distance_km":12, "recovery_cost":0.65, "min_level":2, "description":"Effort prolongé au seuil.",                                        "example":"65min : 3x15min seuil"},
+    {"id":39, "name":"Activation pré-compétition", "category":"specifique",   "intensity":0.45, "duration_min":30,  "distance_km":5,  "recovery_cost":0.2,  "min_level":0, "description":"Sortie légère J-2 ou J-1 — réveille les jambes.",                  "example":"30min très facile + quelques accélérations légères"},
+    {"id":40, "name":"Récupération post-course",   "category":"recuperation", "intensity":0.15, "duration_min":25,  "distance_km":3,  "recovery_cost":0.0,  "min_level":0, "description":"Footing très lent le lendemain d'une course.",                     "example":"25min marche ou trot très lent"},
+    {"id":41, "name":"Gainage running",            "category":"force",        "intensity":0.35, "duration_min":30,  "distance_km":0,  "recovery_cost":0.2,  "min_level":0, "description":"Renforcement spécifique — gainage, fessiers, ischios.",            "example":"30min : gainage, squats, fentes, pont fessier"},
+    {"id":42, "name":"Renforcement musculaire",    "category":"force",        "intensity":0.4,  "duration_min":45,  "distance_km":0,  "recovery_cost":0.25, "min_level":0, "description":"Gym ou poids de corps — prévention blessures.",                    "example":"45min circuit fonctionnel"},
+    {"id":43, "name":"Course en nature",           "category":"endurance",    "intensity":0.4,  "duration_min":60,  "distance_km":10, "recovery_cost":0.3,  "min_level":0, "description":"Sortie trail décontractée — profiter sans objectif.",              "example":"60min en forêt à allure plaisir"},
+    {"id":44, "name":"Séance sur piste",           "category":"intensite",    "intensity":0.82, "duration_min":50,  "distance_km":10, "recovery_cost":0.65, "min_level":1, "description":"Entraînement sur piste — allures précises.",                       "example":"50min : 8x400m sur piste"},
 ]
 
-RECOVERY_COST = [0.1, 0.4, 0.5, 0.6, 0.7, 0.7, 0.7, 0.5, 0.5, 0.3, 0.6, 0.6, 0.6, 0.5, 0.8, 0.2, 0.0, 0.65, 0.8, 0.1]
+CAT_LABELS = {
+    "endurance": "Endurance", "intensite": "Intensité",
+    "recuperation": "Récupération", "force": "Force",
+    "specifique": "Spécifique", "repos": "Repos",
+}
+
+
+def _get_user_level(avg_pace_kmh: float | None) -> int:
+    if not avg_pace_kmh or avg_pace_kmh <= 0:
+        return 0
+    min_per_km = 60 / avg_pace_kmh
+    if min_per_km > 7:   return 0
+    if min_per_km > 5.5: return 1
+    return 2
+
+
+def _days_to_next_race_sync(races: list) -> int | None:
+    if not races:
+        return None
+    upcoming = [r for r in races if not getattr(r, 'is_completed', False)]
+    if not upcoming:
+        return None
+    import datetime
+    next_race = min(upcoming, key=lambda r: r.race_date)
+    try:
+        return (next_race.race_date - date.today()).days
+    except:
+        return None
 
 
 def _compute_recovery(metrics: list) -> tuple[float, dict]:
-    """Calcule le score de récupération depuis les métriques DB."""
     import numpy as np
-
+    if not metrics:
+        return 0.5, {}
     latest = metrics[0]
     hrv_values = [float(m.hrv_last_night) for m in metrics if m.hrv_last_night]
-    hrv_mean  = float(np.median(hrv_values)) if hrv_values else None
-    hrv_today = float(latest.hrv_last_night) if latest.hrv_last_night else None
-    sleep_today = float(latest.sleep_score) if latest.sleep_score else None
-    bb_today = float(latest.body_battery_charged) if latest.body_battery_charged else None
+    hrv_mean   = float(np.median(hrv_values)) if hrv_values else None
+    hrv_today  = float(latest.hrv_last_night) if latest.hrv_last_night else None
+    sleep_today= float(latest.sleep_score)    if latest.sleep_score    else None
+    bb_today   = float(latest.body_battery_charged) if latest.body_battery_charged else None
 
     recovery = 0.5
     n_signals = 0
-
     if hrv_today and hrv_mean and hrv_mean > 0:
         hrv_score = min(hrv_today / hrv_mean, 1.5) / 1.5
         recovery += (hrv_score - 0.5) * 0.5
         n_signals += 1
-
     if sleep_today:
         recovery += (sleep_today / 100 - 0.5) * 0.3
         n_signals += 1
-
     if bb_today:
         recovery += (bb_today / 100 - 0.5) * 0.2
         n_signals += 1
-
     recovery = max(0.05, min(0.95, recovery))
-
-    signals = {
+    return recovery, {
         "hrv_today":    round(hrv_today, 1) if hrv_today else None,
         "hrv_mean":     round(hrv_mean, 1)  if hrv_mean  else None,
         "sleep_score":  int(sleep_today)    if sleep_today else None,
         "body_battery": int(bb_today)       if bb_today  else None,
         "n_signals":    n_signals,
     }
-    return recovery, signals
 
 
-def _rank_sessions(recovery: float, top_k: int) -> list[dict]:
-    """Classe les séances par pertinence selon le score de récupération."""
+def _rank_sessions(
+    recovery: float,
+    user_level: int = 0,
+    days_to_race: int | None = None,
+    top_k: int = 5,
+) -> list[dict]:
+
+    # J-1 ou J0 : activation uniquement
+    if days_to_race is not None and days_to_race <= 1:
+        priority_ids = [39, 1, 6, 2, 3]
+        results = []
+        for sid in priority_ids:
+            s = next((x for x in SESSIONS_V2 if x["id"] == sid), None)
+            if s and len(results) < top_k:
+                results.append({**s, "rank": len(results)+1, "score": 95 - len(results)*5,
+                                 "note": "J-1 avant ta course — préserve tes jambes !"})
+        return results
+
+    # Récupération très faible → repos
+    if recovery < 0.25:
+        rest_ids = [0, 1, 6, 2, 5]
+        results = []
+        for sid in rest_ids[:top_k]:
+            s = next((x for x in SESSIONS_V2 if x["id"] == sid), None)
+            if s:
+                results.append({**s, "rank": len(results)+1, "score": 90 - len(results)*5,
+                                 "note": "Ton corps a besoin de récupérer — repose-toi !"})
+        return results
+
+    # J-7 : limite les séances intenses
+    effective_recovery = recovery
+    if days_to_race is not None and days_to_race <= 7:
+        effective_recovery = min(recovery, 0.55)
+
     scored = []
-    for i, session in enumerate(SESSIONS):
-        intensity = session["intensity"]
-        cost = RECOVERY_COST[i]
+    for s in SESSIONS_V2:
+        if s["min_level"] > user_level:
+            continue
 
-        if recovery >= 0.7:
-            score = 1.0 - abs(intensity - 0.75) * 0.6
-        elif recovery >= 0.5:
-            score = 1.0 - abs(intensity - 0.5) * 0.8
-        elif recovery >= 0.35:
-            score = 1.0 - abs(intensity - 0.3) * 1.0
+        intensity = s["intensity"]
+        cost = s["recovery_cost"]
+        cat = s["category"]
+
+        if effective_recovery >= 0.75:
+            score = 1.0 - abs(intensity - 0.75) * 0.5
+        elif effective_recovery >= 0.55:
+            score = 1.0 - abs(intensity - 0.55) * 0.7
+        elif effective_recovery >= 0.4:
+            score = 1.0 - abs(intensity - 0.35) * 0.9
         else:
-            score = 1.0 - abs(intensity - 0.15) * 1.2
+            score = 1.0 - abs(intensity - 0.2) * 1.1
 
-        if recovery < 0.4 and cost > 0.6:
-            score *= 0.4
-        if recovery < 0.4 and session["category"] == "recuperation":
-            score = min(0.95, score * 1.3)
+        if effective_recovery < 0.45 and cost > 0.6:
+            score *= 0.35
+        if effective_recovery < 0.35 and cost > 0.4:
+            score *= 0.5
+        if effective_recovery < 0.4 and cat in ("recuperation", "repos"):
+            score = min(0.97, score * 1.4)
+        if cat == "force" and effective_recovery >= 0.4:
+            score = min(0.95, score * 1.1)
+        if effective_recovery >= 0.65 and cat == "repos":
+            score *= 0.3
+        if days_to_race is not None and days_to_race <= 7:
+            if cat == "specifique" and intensity < 0.6:
+                score = min(0.95, score * 1.2)
+            if cat in ("repos", "recuperation"):
+                score = min(0.95, score * 1.15)
 
-        scored.append((max(0.05, min(0.95, score)), session))
+        scored.append((max(0.03, min(0.97, score)), s))
 
     scored.sort(key=lambda x: x[0], reverse=True)
 
-    return [
-        {
-            "rank":         i + 1,
-            "session_id":   s["id"],
-            "name":         s["name"],
-            "score":        round(sc * 100, 1),
-            "category":     s["category"],
-            "description":  s["description"],
-            "example":      s["example"],
-            "intensity":    s["intensity"],
-            "duration_min": s["duration_min"],
-            "distance_km":  s["distance_km"],
-        }
-        for i, (sc, s) in enumerate(scored[:top_k])
-    ]
+    results = []
+    for i, (sc, s) in enumerate(scored[:top_k]):
+        item = {**s, "rank": i+1, "score": round(sc * 100, 1)}
+        if days_to_race is not None and days_to_race <= 7:
+            item["note"] = f"J-{days_to_race} avant ta course — semaine de récupération"
+        results.append(item)
+    return results
 
+
+# ─────────────────────────────────────────────────────────────
+# RECOMMEND
+# ─────────────────────────────────────────────────────────────
 
 @router.get("/users/{name}/recommend")
 async def recommend_sessions(
     name: str,
-    top_k: int = Query(5, ge=1, le=10, description="Nombre de séances à recommander"),
+    top_k: int = Query(5, ge=1, le=10),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Recommande les top_k séances d'entraînement pour aujourd'hui.
-    Basé sur HRV, sleep score et body battery des 14 derniers jours.
-    """
     user = await _get_user(db, name)
 
-    # Récupère les 15 derniers jours
+    # Métriques 15 derniers jours
     since = date.today() - timedelta(days=15)
     metrics = (await db.execute(
         select(DailyMetric)
@@ -251,10 +327,40 @@ async def recommend_sessions(
     )).scalars().all()
 
     if not metrics:
-        raise HTTPException(400, "Pas de données disponibles pour cet utilisateur.")
+        raise HTTPException(400, "Pas de données disponibles.")
 
     recovery, signals = _compute_recovery(metrics)
-    recommendations   = _rank_sessions(recovery, top_k)
+
+    # Allure moyenne depuis les activités Garmin (30 derniers jours)
+    since_acts = date.today() - timedelta(days=30)
+    activities = (await db.execute(
+        select(Activity)
+        .where(Activity.user_id == user.id)
+        .where(Activity.date >= since_acts)
+        .where(Activity.activity_type.in_(["running", "trail_running", "treadmill_running"]))
+    )).scalars().all()
+
+    avg_pace_kmh = None
+    if activities:
+        speeds = [float(a.avg_speed_kmh) for a in activities if a.avg_speed_kmh and a.avg_speed_kmh > 0]
+        if speeds:
+            import numpy as np
+            avg_pace_kmh = float(np.mean(speeds))
+
+    user_level = _get_user_level(avg_pace_kmh)
+
+    # Prochaine course
+    races = (await db.execute(
+        select(PlannedRace)
+        .where(PlannedRace.user_id == user.id)
+        .where(PlannedRace.is_completed == False)
+        .where(PlannedRace.race_date >= date.today())
+        .order_by(PlannedRace.race_date)
+    )).scalars().all()
+
+    days_to_race = _days_to_next_race_sync(races)
+
+    recommendations = _rank_sessions(recovery, user_level, days_to_race, top_k)
 
     return {
         "user":  name,
@@ -269,28 +375,22 @@ async def recommend_sessions(
             ),
             **signals,
         },
+        "athlete": {
+            "level": ["Débutant", "Intermédiaire", "Avancé"][user_level],
+            "avg_pace_kmh": round(avg_pace_kmh, 1) if avg_pace_kmh else None,
+            "days_to_next_race": days_to_race,
+        },
         "recommendations": recommendations,
     }
 
-# Routes supplémentaires à ajouter à la fin de app/routers/data.py
 
 # ─────────────────────────────────────────────────────────────
-# RECOVERY SCORE — Score de récupération du jour
+# RECOVERY SCORE
 # ─────────────────────────────────────────────────────────────
 
 @router.get("/users/{name}/recovery-score")
-async def get_recovery_score(
-    name: str,
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Retourne le score de récupération du jour pour un utilisateur.
-    Score composite basé sur HRV, sleep score et body battery.
-    """
-    import numpy as np
-
+async def get_recovery_score(name: str, db: AsyncSession = Depends(get_db)):
     user = await _get_user(db, name)
-
     since = date.today() - timedelta(days=15)
     metrics = (await db.execute(
         select(DailyMetric)
@@ -303,7 +403,6 @@ async def get_recovery_score(
         return {"user": name, "score": None, "level": None, "message": "Pas de données disponibles"}
 
     recovery, signals = _compute_recovery(metrics)
-
     return {
         "user":  name,
         "date":  date.today().isoformat(),
@@ -319,21 +418,16 @@ async def get_recovery_score(
 
 
 # ─────────────────────────────────────────────────────────────
-# TRENDS — Tendances sur 30 jours
+# TRENDS
 # ─────────────────────────────────────────────────────────────
 
 @router.get("/users/{name}/trends")
 async def get_trends(
     name: str,
-    days: int = Query(30, ge=7, le=90, description="Période d'analyse en jours"),
+    days: int = Query(30, ge=7, le=90),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Retourne les tendances physiologiques sur N jours.
-    Utile pour afficher des graphiques sur le site.
-    """
     user = await _get_user(db, name)
-
     since = date.today() - timedelta(days=days)
     metrics = (await db.execute(
         select(DailyMetric)
@@ -345,42 +439,35 @@ async def get_trends(
     if not metrics:
         raise HTTPException(404, "Pas de données disponibles.")
 
-    # Série temporelle
     series = []
     for m in metrics:
         series.append({
-            "date":          m.date.isoformat(),
-            "hrv":           float(m.hrv_last_night)      if m.hrv_last_night      else None,
-            "resting_hr":    int(m.resting_hr)            if m.resting_hr          else None,
-            "sleep_score":   int(m.sleep_score)           if m.sleep_score         else None,
-            "sleep_min":     int(m.sleep_duration_min)    if m.sleep_duration_min  else None,
-            "body_battery":  int(m.body_battery_charged)  if m.body_battery_charged else None,
-            "steps":         int(m.total_steps)           if m.total_steps         else None,
-            "stress":        int(m.avg_stress)            if m.avg_stress          else None,
+            "date":         m.date.isoformat(),
+            "hrv":          float(m.hrv_last_night)     if m.hrv_last_night      else None,
+            "resting_hr":   int(m.resting_hr)           if m.resting_hr          else None,
+            "sleep_score":  int(m.sleep_score)          if m.sleep_score         else None,
+            "sleep_min":    int(m.sleep_duration_min)   if m.sleep_duration_min  else None,
+            "body_battery": int(m.body_battery_charged) if m.body_battery_charged else None,
+            "steps":        int(m.total_steps)          if m.total_steps         else None,
+            "stress":       int(m.avg_stress)           if m.avg_stress          else None,
         })
-
-    # Statistiques résumées
-    hrv_vals    = [s["hrv"]          for s in series if s["hrv"]]
-    sleep_vals  = [s["sleep_score"]  for s in series if s["sleep_score"]]
-    hr_vals     = [s["resting_hr"]   for s in series if s["resting_hr"]]
 
     import numpy as np
 
+    def trend(vals):
+        if len(vals) < 5: return "stable"
+        h = len(vals) // 2
+        diff = (np.mean(vals[h:]) - np.mean(vals[:h])) / (np.mean(vals[:h]) + 1e-6)
+        return "hausse" if diff > 0.05 else "baisse" if diff < -0.05 else "stable"
+
+    hrv_v   = [s["hrv"]         for s in series if s["hrv"]]
+    sleep_v = [s["sleep_score"] for s in series if s["sleep_score"]]
+    hr_v    = [s["resting_hr"]  for s in series if s["resting_hr"]]
+
     summary = {
-        "hrv": {
-            "mean":  round(float(np.mean(hrv_vals)),   1) if hrv_vals  else None,
-            "min":   round(float(np.min(hrv_vals)),    1) if hrv_vals  else None,
-            "max":   round(float(np.max(hrv_vals)),    1) if hrv_vals  else None,
-            "trend": _compute_trend(hrv_vals),
-        },
-        "sleep_score": {
-            "mean":  round(float(np.mean(sleep_vals)), 1) if sleep_vals else None,
-            "trend": _compute_trend(sleep_vals),
-        },
-        "resting_hr": {
-            "mean":  round(float(np.mean(hr_vals)),    1) if hr_vals   else None,
-            "trend": _compute_trend(hr_vals),
-        },
+        "hrv":         {"mean": round(float(np.mean(hrv_v)),   1) if hrv_v   else None, "trend": trend(hrv_v)},
+        "sleep_score": {"mean": round(float(np.mean(sleep_v)), 1) if sleep_v else None, "trend": trend(sleep_v)},
+        "resting_hr":  {"mean": round(float(np.mean(hr_v)),    1) if hr_v    else None, "trend": trend(hr_v)},
     }
 
     return {
@@ -390,18 +477,3 @@ async def get_trends(
         "summary": summary,
         "series":  series,
     }
-
-
-def _compute_trend(values: list) -> str:
-    """Calcule la tendance : hausse / stable / baisse."""
-    if len(values) < 5:
-        return "stable"
-    import numpy as np
-    first_half = np.mean(values[:len(values)//2])
-    second_half = np.mean(values[len(values)//2:])
-    diff = (second_half - first_half) / (first_half + 1e-6)
-    if diff > 0.05:
-        return "hausse"
-    elif diff < -0.05:
-        return "baisse"
-    return "stable"
