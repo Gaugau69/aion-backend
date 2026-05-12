@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PEAKFLOW | CRONOS</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@300;400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -76,7 +77,7 @@ textarea.input-field { resize: vertical; }
 .session-score-num { font-family: 'Syne', sans-serif; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.02em; }
 .score-slash { color: var(--muted); font-size: 1rem; font-weight: 300; }
 .trends-section { margin-bottom: 4rem; }
-.trends-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); }
+.trends-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); margin-bottom: 2rem; }
 .trend-cell { background: var(--bg); padding: 2rem; }
 .trend-name { font-size: 0.65rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--muted); margin-bottom: 1rem; }
 .trend-val { font-family: 'Syne', sans-serif; font-size: 3rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1; margin-bottom: 0.75rem; }
@@ -84,6 +85,10 @@ textarea.input-field { resize: vertical; }
 .t-up { background: rgba(16,185,129,0.1); color: var(--green); }
 .t-down { background: rgba(248,113,113,0.1); color: #f87171; }
 .t-stable { background: rgba(255,255,255,0.05); color: var(--muted); }
+.charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+.chart-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; }
+.chart-title { font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-bottom: 1rem; }
+.chart-wrap { position: relative; height: 160px; }
 .form-section { margin-bottom: 4rem; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
 .form-group { display: flex; flex-direction: column; gap: 0.5rem; }
@@ -105,6 +110,20 @@ textarea.input-field { resize: vertical; }
 .empty-state { padding: 2rem 0; font-size: 0.8rem; color: var(--muted); letter-spacing: 0.1em; }
 .form-actions { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
 .perf-section-title { font-size: 0.65rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--green); margin: 2rem 0 1rem; padding-top: 2rem; border-top: 1px solid var(--border); }
+.history-item { padding: 1rem 0; border-bottom: 1px solid var(--border); display: grid; grid-template-columns: auto 1fr auto; gap: 1.5rem; align-items: center; }
+.history-date { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.history-sessions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.history-score { font-family: 'Syne', sans-serif; font-size: 1.2rem; font-weight: 700; }
+.score-breakdown { display: flex; gap: 1.5rem; margin-top: 1.5rem; flex-wrap: wrap; }
+.score-item { display: flex; flex-direction: column; gap: 0.3rem; min-width: 120px; }
+.score-item-label { font-size: 0.6rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+.score-item-bar-bg { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.score-item-bar { height: 100%; border-radius: 2px; transition: width 0.8s ease; }
+.score-item-val { font-size: 0.8rem; color: var(--text); }
+.sync-status { display: flex; align-items: center; gap: 0.5rem; font-size: 0.7rem; color: var(--muted); letter-spacing: 0.1em; }
+.sync-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); }
+.sync-dot.stale { background: #f59e0b; }
+.sync-dot.old { background: #f87171; }
 </style>
 </head>
 <body>
@@ -152,6 +171,11 @@ textarea.input-field { resize: vertical; }
           <div class="recovery-label-big">Récupération — aujourd'hui</div>
           <div class="recovery-level-text" id="rec-level">—</div>
           <div id="signals-list"><div class="loading"><div class="spinner"></div>Analyse des signaux...</div></div>
+          <div id="score-breakdown" style="display:none" class="score-breakdown"></div>
+          <div id="sync-status" style="margin-top:1.5rem;display:none" class="sync-status">
+            <div class="sync-dot" id="sync-dot"></div>
+            <span id="sync-text">—</span>
+          </div>
         </div>
         <div style="text-align:right">
           <div class="recovery-score-big" id="rec-score">—</div>
@@ -167,12 +191,38 @@ textarea.input-field { resize: vertical; }
         <div id="sessions-wrap"><div class="loading"><div class="spinner"></div>CRONOS calcule les séances optimales...</div></div>
       </div>
 
+      <div class="sessions-section">
+        <div class="sec-head">
+          <div class="sec-title">Historique</div>
+          <div class="sec-label">Recommandations passées</div>
+        </div>
+        <div id="history-wrap"></div>
+      </div>
+
       <div class="trends-section">
         <div class="sec-head">
           <div class="sec-title">Tendances</div>
           <div class="sec-label">30 derniers jours</div>
         </div>
         <div id="trends-wrap"><div class="loading"><div class="spinner"></div>Chargement des tendances...</div></div>
+        <div class="charts-grid" id="charts-grid" style="display:none">
+          <div class="chart-card">
+            <div class="chart-title">HRV nocturne (ms)</div>
+            <div class="chart-wrap"><canvas id="chart-hrv"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Score sommeil /100</div>
+            <div class="chart-wrap"><canvas id="chart-sleep"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">FC repos (bpm)</div>
+            <div class="chart-wrap"><canvas id="chart-hr"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Body battery rechargé</div>
+            <div class="chart-wrap"><canvas id="chart-bb"></canvas></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -420,6 +470,7 @@ async function loadDash() {
     document.getElementById('dashboard').classList.add('on');
     document.getElementById('nav-logout').style.display = 'block';
     Promise.all([loadRecovery(name), loadSessions(name), loadTrends(name), loadProfile(name), loadRaces(name)]);
+    loadHistory(name);
   } catch(e) {
     showErr('err-msg','Erreur de connexion.'); btn.disabled=false; btn.textContent='Accéder à mes données';
   }
@@ -434,8 +485,14 @@ async function loadRecovery(name) {
     document.getElementById('rec-score').textContent = Math.round(score);
     document.getElementById('rec-score').style.color = color;
     document.getElementById('rec-level').textContent = d.level ?? '—';
+
+    // Signaux avec comparaison moyenne
     const rows = [];
-    if (d.hrv_today) rows.push({ n:'HRV nocturne', v:`${d.hrv_today} ms`, sub: d.hrv_mean ? `moy. ${d.hrv_mean} ms` : null });
+    if (d.hrv_today) {
+      const diff = d.hrv_mean ? Math.round((d.hrv_today - d.hrv_mean) / d.hrv_mean * 100) : null;
+      const diffStr = diff !== null ? (diff > 0 ? ` ↑ +${diff}%` : ` ↓ ${diff}%`) : '';
+      rows.push({ n:'HRV nocturne', v:`${d.hrv_today} ms${diffStr}`, sub: d.hrv_mean ? `moy. ${d.hrv_mean} ms` : null });
+    }
     if (d.sleep_score) rows.push({ n:'Score sommeil', v:`${d.sleep_score} / 100` });
     if (d.body_battery) rows.push({ n:'Body battery', v:`${d.body_battery} / 100` });
     if (!rows.length) rows.push({ n:'Signaux disponibles', v:'0 / 3', sub:'Données collectées cette nuit' });
@@ -444,7 +501,84 @@ async function loadRecovery(name) {
         <div class="signal-name">${r.n}${r.sub?`<br><span style="font-size:0.65rem;opacity:0.5">${r.sub}</span>`:''}</div>
         <div class="signal-val" style="color:${color}">${r.v}</div>
       </div>`).join('');
+
+    // Point 4 : Breakdown score
+    const breakdown = document.getElementById('score-breakdown');
+    const items = [];
+    if (d.hrv_today && d.hrv_mean) {
+      const v = Math.min(Math.round(Math.min(d.hrv_today/d.hrv_mean, 1.5)/1.5*100), 100);
+      items.push({ label:'HRV', val:v, poids:'50%', color:'#10B981' });
+    }
+    if (d.sleep_score) items.push({ label:'Sommeil', val:d.sleep_score, poids:'30%', color:'#6366f1' });
+    if (d.body_battery) items.push({ label:'Body Battery', val:d.body_battery, poids:'20%', color:'#ec4899' });
+
+    if (items.length) {
+      breakdown.style.display = 'flex';
+      breakdown.innerHTML = items.map(it => `
+        <div class="score-item">
+          <div class="score-item-label">${it.label} <span style="opacity:0.5">(${it.poids})</span></div>
+          <div class="score-item-bar-bg"><div class="score-item-bar" style="width:0%;background:${it.color}" data-w="${it.val}%"></div></div>
+          <div class="score-item-val">${it.val}/100</div>
+        </div>`).join('');
+      setTimeout(() => {
+        document.querySelectorAll('.score-item-bar').forEach(b => b.style.width = b.dataset.w);
+      }, 300);
+    }
+
+    // Point 5 : Statut synchronisation depuis dernière métrique
+    try {
+      const tr = await fetch(`${BACKEND}/users/${encodeURIComponent(name)}/trends?days=2`);
+      const td = await tr.json();
+      const series = td.series ?? [];
+      if (series.length) {
+        const lastDate = new Date(series[series.length-1].date);
+        const now = new Date();
+        const diffH = Math.round((now - lastDate) / 3600000);
+        const el = document.getElementById('sync-status');
+        const dot = document.getElementById('sync-dot');
+        const txt = document.getElementById('sync-text');
+        el.style.display = 'flex';
+        if (diffH < 12) { dot.className='sync-dot'; txt.textContent=`Synchronisé il y a ${diffH}h`; }
+        else if (diffH < 36) { dot.className='sync-dot stale'; txt.textContent=`Dernière sync il y a ${diffH}h`; }
+        else { dot.className='sync-dot old'; txt.textContent=`Pas de sync depuis ${Math.round(diffH/24)} jours`; }
+      }
+    } catch(e) {}
+
   } catch(e) { document.getElementById('signals-list').innerHTML = '<div style="color:#f87171;font-size:0.8rem;padding:1rem 0">Erreur</div>'; }
+}
+
+// Point 2 : Historique (stocké en sessionStorage)
+function saveHistory(name, recs, score) {
+  const key = `cronos_history_${name}`;
+  let history = [];
+  try { history = JSON.parse(sessionStorage.getItem(key) || '[]'); } catch(e) {}
+  const today = new Date().toISOString().split('T')[0];
+  if (!history.find(h => h.date === today)) {
+    history.unshift({ date: today, score, sessions: recs.slice(0,3).map(r => r.name) });
+    if (history.length > 7) history = history.slice(0, 7);
+    sessionStorage.setItem(key, JSON.stringify(history));
+  }
+}
+
+function loadHistory(name) {
+  const key = `cronos_history_${name}`;
+  let history = [];
+  try { history = JSON.parse(sessionStorage.getItem(key) || '[]'); } catch(e) {}
+  const wrap = document.getElementById('history-wrap');
+  if (!wrap) return;
+  if (!history.length) {
+    wrap.innerHTML = '<div class="empty-state">Aucun historique — reviens demain !</div>';
+    return;
+  }
+  wrap.innerHTML = history.map(h => {
+    const color = h.score >= 65 ? '#10B981' : h.score >= 45 ? '#f59e0b' : '#f87171';
+    const dateStr = new Date(h.date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
+    return `<div class="history-item">
+      <div class="history-date">${dateStr}</div>
+      <div class="history-sessions">${h.sessions.map(s=>`<span class="tag">${s}</span>`).join('')}</div>
+      <div class="history-score" style="color:${color}">${Math.round(h.score)}</div>
+    </div>`;
+  }).join('');
 }
 
 async function loadSessions(name) {
@@ -456,6 +590,8 @@ async function loadSessions(name) {
     if (athlete.days_to_next_race !== null && athlete.days_to_next_race !== undefined) {
       document.getElementById('sessions-sublabel').textContent = `J-${athlete.days_to_next_race} avant ta prochaine course`;
     }
+    saveHistory(name, recs, d.recovery?.score ?? 50);
+    loadHistory(name);
     document.getElementById('sessions-wrap').innerHTML = recs.map((rec,i) => `
       <div class="session-row" style="animation-delay:${i*0.07}s">
         <div class="session-num">0${rec.rank}</div>
@@ -477,17 +613,77 @@ async function loadSessions(name) {
   } catch(e) { document.getElementById('sessions-wrap').innerHTML = '<div style="color:#f87171;font-size:0.8rem;padding:1rem 0">Erreur</div>'; }
 }
 
+let chartInstances = {};
+
+function destroyChart(id) {
+  if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
+}
+
+function makeChart(canvasId, labels, data, color, unit) {
+  destroyChart(canvasId);
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return;
+  const filtered = data.map((v,i) => v !== null ? {x: labels[i], y: v} : null).filter(Boolean);
+  chartInstances[canvasId] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      datasets: [{
+        data: filtered,
+        borderColor: color,
+        backgroundColor: color.replace(')', ',0.08)').replace('rgb', 'rgba'),
+        borderWidth: 1.5,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        tension: 0.3,
+        fill: true,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { intersect: false, mode: 'index' },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(15,21,36,0.95)',
+          borderColor: 'rgba(255,255,255,0.07)',
+          borderWidth: 1,
+          titleColor: 'rgba(245,245,240,0.45)',
+          bodyColor: '#f5f5f0',
+          callbacks: { label: ctx => `${ctx.parsed.y} ${unit}` }
+        }
+      },
+      scales: {
+        x: {
+          type: 'category',
+          ticks: { color: 'rgba(245,245,240,0.3)', font: { size: 10 }, maxTicksLimit: 6 },
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          border: { color: 'rgba(255,255,255,0.07)' }
+        },
+        y: {
+          ticks: { color: 'rgba(245,245,240,0.3)', font: { size: 10 } },
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          border: { color: 'rgba(255,255,255,0.07)' }
+        }
+      }
+    }
+  });
+}
+
 async function loadTrends(name) {
   try {
     const r = await fetch(`${BACKEND}/users/${encodeURIComponent(name)}/trends?days=30`);
     const d = await r.json();
     const s = d.summary ?? {};
+    const series = d.series ?? [];
+
+    // Summary cards
     const metrics = [
       { key:'hrv', label:'HRV moyen', unit:'ms' },
       { key:'sleep_score', label:'Score sommeil', unit:'/100' },
       { key:'resting_hr', label:'FC repos', unit:'bpm' },
     ];
-    document.getElementById('trends-wrap').innerHTML = `<div class="trends-grid">` + metrics.map(m => {
+    document.getElementById('trends-wrap').innerHTML = `<div class="trends-summary">` + metrics.map(m => {
       const md = s[m.key] ?? {};
       const val = md.mean ? Math.round(md.mean) : null;
       const trend = md.trend ?? 'stable';
@@ -495,6 +691,21 @@ async function loadTrends(name) {
       const tl = trend==='hausse'?'↑ Hausse':trend==='baisse'?'↓ Baisse':'→ Stable';
       return `<div class="trend-cell"><div class="trend-name">${m.label}</div><div class="trend-val">${val?val+m.unit:'—'}</div>${val?`<span class="trend-badge ${tc}">${tl}</span>`:'<span style="font-size:0.7rem;color:var(--muted)">Données insuffisantes</span>'}</div>`;
     }).join('') + `</div>`;
+
+    // Graphiques
+    if (series.length > 3) {
+      document.getElementById('charts-grid').style.display = 'grid';
+      const labels = series.map(s => {
+        const d = new Date(s.date);
+        return `${d.getDate()}/${d.getMonth()+1}`;
+      });
+      setTimeout(() => {
+        makeChart('chart-hrv',   labels, series.map(s => s.hrv),          'rgb(16,185,129)', 'ms');
+        makeChart('chart-sleep', labels, series.map(s => s.sleep_score),  'rgb(99,102,241)', '/100');
+        makeChart('chart-hr',    labels, series.map(s => s.resting_hr),   'rgb(245,158,11)', 'bpm');
+        makeChart('chart-bb',    labels, series.map(s => s.body_battery), 'rgb(236,72,153)', '/100');
+      }, 100);
+    }
   } catch(e) { document.getElementById('trends-wrap').innerHTML = '<div style="color:#f87171;font-size:0.8rem;padding:1rem 0">Erreur</div>'; }
 }
 
