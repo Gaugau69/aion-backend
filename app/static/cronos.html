@@ -110,6 +110,34 @@ textarea.input-field { resize: vertical; }
 .empty-state { padding: 2rem 0; font-size: 0.8rem; color: var(--muted); letter-spacing: 0.1em; }
 .form-actions { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
 .perf-section-title { font-size: 0.65rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--green); margin: 2rem 0 1rem; padding-top: 2rem; border-top: 1px solid var(--border); }
+@media (max-width: 768px) {
+  nav { padding: 1rem 1.25rem; }
+  .nav-links { gap: 1.25rem; }
+  .nav-links a { font-size: 0.7rem; letter-spacing: 0.08em; }
+  main { padding: 2rem 1.25rem 5rem; }
+  .tabs { overflow-x: auto; gap: 0; }
+  .tab-btn { padding: 0.85rem 1rem; font-size: 0.7rem; white-space: nowrap; }
+  .recovery-hero { grid-template-columns: 1fr; gap: 1.5rem; padding: 2rem 0; }
+  .recovery-score-big { font-size: clamp(5rem, 22vw, 8rem); text-align: left; }
+  .recovery-hero > div:last-child { text-align: left; }
+  .session-row { grid-template-columns: 2.5rem 1fr auto; gap: 1rem; padding: 1.25rem 0; }
+  .session-num { font-size: 1.5rem; }
+  .session-name { font-size: 0.9rem; }
+  .session-score-num { font-size: 1.8rem; }
+  .trends-summary { grid-template-columns: 1fr; gap: 1px; }
+  .charts-grid { grid-template-columns: 1fr; }
+  .form-grid { grid-template-columns: 1fr; }
+  .score-breakdown { gap: 1rem; }
+  .race-item { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+  .history-item { grid-template-columns: 1fr; gap: 0.5rem; }
+  .sec-title { font-size: clamp(1.5rem, 7vw, 2.2rem); }
+  .trend-val { font-size: 2.2rem; }
+  .hero-title { font-size: clamp(4rem, 18vw, 7rem); }
+  .login-wrap { padding: 2rem 0; gap: 1.5rem; }
+}
+@media (max-width: 480px) {
+  .nav-links li:not(:last-child):not(:nth-last-child(2)) { display: none; }
+}
 .history-item { padding: 1rem 0; border-bottom: 1px solid var(--border); display: grid; grid-template-columns: auto 1fr auto; gap: 1.5rem; align-items: center; }
 .history-date { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
 .history-sessions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
@@ -135,6 +163,7 @@ textarea.input-field { resize: vertical; }
     <li><a href="#">Kairos</a></li>
     <li><a href="#">Aion</a></li>
     <li><a href="#" class="active">Cronos</a></li>
+    <li><a href="#" id="nav-share" style="display:none" onclick="shareLink()">Partager</a></li>
     <li><a href="#" id="nav-logout" style="display:none" onclick="location.reload()">Déconnexion</a></li>
   </ul>
 </nav>
@@ -166,6 +195,17 @@ textarea.input-field { resize: vertical; }
     <!-- TAB OVERVIEW -->
     <div class="tab-panel active" id="tab-overview">
 
+      <div id="race-banner" style="display:none;padding:1rem 1.5rem;margin-bottom:2rem;border:1px solid rgba(245,158,11,0.3);border-radius:8px;background:rgba(245,158,11,0.06);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem">
+        <div>
+          <div style="font-size:0.6rem;letter-spacing:0.25em;text-transform:uppercase;color:#f59e0b;margin-bottom:0.25rem">Prochaine course</div>
+          <div id="race-banner-name" style="font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:700;text-transform:uppercase"></div>
+        </div>
+        <div style="text-align:right">
+          <div id="race-banner-days" style="font-family:'Syne',sans-serif;font-size:2.5rem;font-weight:800;color:#f59e0b;line-height:1"></div>
+          <div style="font-size:0.65rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted)">jours</div>
+        </div>
+      </div>
+
       <div class="recovery-hero">
         <div>
           <div class="recovery-label-big">Récupération — aujourd'hui</div>
@@ -189,6 +229,14 @@ textarea.input-field { resize: vertical; }
           <div class="sec-label" id="sessions-sublabel">Recommandées pour aujourd'hui</div>
         </div>
         <div id="sessions-wrap"><div class="loading"><div class="spinner"></div>CRONOS calcule les séances optimales...</div></div>
+      </div>
+
+      <div class="sessions-section">
+        <div class="sec-head">
+          <div class="sec-title">Cette semaine</div>
+          <div class="sec-label">Activité & progression</div>
+        </div>
+        <div id="weekly-wrap"><div class="loading"><div class="spinner"></div>Calcul de la charge...</div></div>
       </div>
 
       <div class="sessions-section">
@@ -412,6 +460,91 @@ const BACKEND = 'https://web-production-3668.up.railway.app';
 const CAT = { endurance:'Endurance', intensite:'Intensité', recuperation:'Récupération', force:'Force', specifique:'Spécifique', repos:'Repos' };
 let currentUser = null;
 
+
+
+async function loadWeekly(name) {
+  try {
+    const r = await fetch(`${BACKEND}/users/${encodeURIComponent(name)}/activities?start=${getMonday()}`);
+    const acts = await r.json();
+    const running = acts.filter(a => ['running','trail_running','treadmill_running','track_running'].includes(a.activity_type));
+
+    const totalKm = running.reduce((s,a) => s + (a.distance_km||0), 0);
+    const totalMin = running.reduce((s,a) => s + (a.duration_min||0), 0);
+    const sessions = running.length;
+
+    // Previous week
+    const pr = await fetch(`${BACKEND}/users/${encodeURIComponent(name)}/activities?start=${getPrevMonday()}&end=${getMonday()}`);
+    const prevActs = await pr.json();
+    const prevRunning = prevActs.filter(a => ['running','trail_running','treadmill_running','track_running'].includes(a.activity_type));
+    const prevKm = prevRunning.reduce((s,a) => s + (a.distance_km||0), 0);
+
+    const kmDiff = prevKm > 0 ? Math.round((totalKm - prevKm) / prevKm * 100) : null;
+    const diffStr = kmDiff !== null ? (kmDiff > 0 ? `<span style="color:#10B981">↑ +${kmDiff}%</span>` : `<span style="color:#f87171">↓ ${kmDiff}%</span>`) : '';
+
+    // Streak
+    const allR = await fetch(`${BACKEND}/users/${encodeURIComponent(name)}/activities?start=${daysAgo(30)}`);
+    const allActs = await allR.json();
+    const actDates = new Set(allActs.map(a => a.date?.split('T')[0]));
+    let streak = 0;
+    for (let i=0; i<30; i++) {
+      const d = daysAgo(i);
+      if (actDates.has(d)) streak++;
+      else if (i > 0) break;
+    }
+
+    document.getElementById('weekly-wrap').innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1px;background:var(--border);border:1px solid var(--border)">
+        <div style="background:var(--bg);padding:1.5rem">
+          <div style="font-size:0.6rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);margin-bottom:0.75rem">Kilomètres</div>
+          <div style="font-family:'Syne',sans-serif;font-size:2.5rem;font-weight:800;letter-spacing:-0.03em;line-height:1">${totalKm.toFixed(1)}<span style="font-size:1rem;font-weight:300;color:var(--muted)"> km</span></div>
+          ${diffStr ? `<div style="font-size:0.75rem;margin-top:0.5rem">${diffStr} vs semaine dernière</div>` : ''}
+        </div>
+        <div style="background:var(--bg);padding:1.5rem">
+          <div style="font-size:0.6rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);margin-bottom:0.75rem">Durée</div>
+          <div style="font-family:'Syne',sans-serif;font-size:2.5rem;font-weight:800;letter-spacing:-0.03em;line-height:1">${Math.round(totalMin/60)}<span style="font-size:1rem;font-weight:300;color:var(--muted)">h ${Math.round(totalMin%60)}min</span></div>
+        </div>
+        <div style="background:var(--bg);padding:1.5rem">
+          <div style="font-size:0.6rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);margin-bottom:0.75rem">Séances</div>
+          <div style="font-family:'Syne',sans-serif;font-size:2.5rem;font-weight:800;letter-spacing:-0.03em;line-height:1">${sessions}</div>
+        </div>
+        <div style="background:var(--bg);padding:1.5rem">
+          <div style="font-size:0.6rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);margin-bottom:0.75rem">Streak</div>
+          <div style="font-family:'Syne',sans-serif;font-size:2.5rem;font-weight:800;letter-spacing:-0.03em;line-height:1;color:${streak>=3?'#10B981':'var(--text)'}">${streak}<span style="font-size:1rem;font-weight:300;color:var(--muted)"> j</span></div>
+        </div>
+      </div>`;
+  } catch(e) {
+    const w = document.getElementById('weekly-wrap');
+    if (w) w.innerHTML = '<div style="color:var(--muted);font-size:0.8rem;padding:1rem 0">Données indisponibles</div>';
+  }
+}
+
+function getMonday() {
+  const d = new Date();
+  const day = d.getDay(), diff = d.getDate() - day + (day==0?-6:1);
+  return new Date(d.setDate(diff)).toISOString().split('T')[0];
+}
+function getPrevMonday() {
+  const d = new Date(getMonday());
+  d.setDate(d.getDate()-7);
+  return d.toISOString().split('T')[0];
+}
+function daysAgo(n) {
+  const d = new Date();
+  d.setDate(d.getDate()-n);
+  return d.toISOString().split('T')[0];
+}
+
+function shareLink() {
+  const url = `${window.location.origin}${window.location.pathname}?user=${encodeURIComponent(currentUser)}`;
+  navigator.clipboard.writeText(url).then(() => {
+    const el = document.getElementById('nav-share');
+    el.textContent = '✓ Lien copié !';
+    setTimeout(() => el.textContent = 'Partager', 2000);
+  }).catch(() => {
+    prompt('Copie ce lien :', `${window.location.origin}${window.location.pathname}?user=${encodeURIComponent(currentUser)}`);
+  });
+}
+
 function showErr(id, m) { const e=document.getElementById(id); e.textContent=m; e.style.display='block'; setTimeout(()=>e.style.display='none',4000); }
 function showOk(id) { const e=document.getElementById(id); e.style.display='block'; setTimeout(()=>e.style.display='none',3000); }
 
@@ -469,8 +602,9 @@ async function loadDash() {
     document.getElementById('login-wrap').style.display = 'none';
     document.getElementById('dashboard').classList.add('on');
     document.getElementById('nav-logout').style.display = 'block';
-    Promise.all([loadRecovery(name), loadSessions(name), loadTrends(name), loadProfile(name), loadRaces(name)]);
+    Promise.all([loadRecovery(name), loadSessions(name), loadTrends(name), loadProfile(name), loadRaces(name), loadWeekly(name)]);
     loadHistory(name);
+    document.getElementById('nav-share').style.display = 'block';
   } catch(e) {
     showErr('err-msg','Erreur de connexion.'); btn.disabled=false; btn.textContent='Accéder à mes données';
   }
@@ -540,7 +674,16 @@ async function loadRecovery(name) {
         el.style.display = 'flex';
         if (diffH < 12) { dot.className='sync-dot'; txt.textContent=`Synchronisé il y a ${diffH}h`; }
         else if (diffH < 36) { dot.className='sync-dot stale'; txt.textContent=`Dernière sync il y a ${diffH}h`; }
-        else { dot.className='sync-dot old'; txt.textContent=`Pas de sync depuis ${Math.round(diffH/24)} jours`; }
+        else {
+          dot.className='sync-dot old';
+          txt.textContent=`Pas de sync depuis ${Math.round(diffH/24)} jours`;
+          // Notification banner
+          const notif = document.createElement('div');
+          notif.style.cssText = 'position:fixed;top:4rem;left:50%;transform:translateX(-50%);background:#1a1008;border:1px solid rgba(248,113,113,0.3);border-radius:8px;padding:0.75rem 1.25rem;font-size:0.78rem;color:#f87171;z-index:200;max-width:90vw;text-align:center';
+          notif.textContent = '⚠ Tes données ne sont pas à jour — vérifie que ton app Peakflow tourne bien.';
+          document.body.appendChild(notif);
+          setTimeout(() => notif.remove(), 6000);
+        }
       }
     } catch(e) {}
 
@@ -764,6 +907,18 @@ async function loadRaces(name) {
       document.getElementById('races-list').innerHTML = '<div class="empty-state">Aucune course planifiée — ajoute ta prochaine compétition ci-dessous.</div>';
       return;
     }
+    // Update banner in overview
+    const bannerEl = document.getElementById('race-banner');
+    if (bannerEl && races.length) {
+      const next = races[0];
+      const daysLeft = Math.round((new Date(next.race_date) - new Date()) / 86400000);
+      if (daysLeft >= 0) {
+        bannerEl.style.display = 'flex';
+        document.getElementById('race-banner-name').textContent = next.race_name;
+        document.getElementById('race-banner-days').textContent = `J-${daysLeft}`;
+      }
+    }
+
     document.getElementById('races-list').innerHTML = races.map(race => {
       const daysLeft = Math.round((new Date(race.race_date) - new Date()) / 86400000);
       return `
@@ -824,6 +979,16 @@ async function deleteRace(id) {
 }
 
 document.getElementById('name-input').addEventListener('keydown', e => { if(e.key==='Enter') loadDash(); });
+
+// Point 1 : URL partageable ?user=Emmanuel
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const u = params.get('user') || params.get('name');
+  if (u) {
+    document.getElementById('name-input').value = u;
+    loadDash();
+  }
+})();
 </script>
 </body>
 </html>
