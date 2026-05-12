@@ -238,3 +238,19 @@ async def collect_all_users_yesterday(db: AsyncSession):
             log.info(f"[{user.name}] {summary}")
         except Exception as e:
             log.error(f"[{user.name}] Erreur collecte: {e}")
+            # ── NOTIFICATION EMAIL TOKEN EXPIRÉ — À ACTIVER AU LANCEMENT ──
+            # if "401" in str(e) or "token invalide" in str(e):
+            #     await _notify_token_expired(user.name, user.email)
+
+# ── À ACTIVER AU LANCEMENT ──
+# async def _notify_token_expired(name: str, email: str):
+#     """Envoie un email quand le token Garmin/Polar expire."""
+#     from app.services.email import send_email  # à brancher sur le service d'Antoine
+#     await send_email(
+#         to=email,
+#         subject="Peakflow — Reconnexion requise",
+#         body=f"Bonjour {name},\n\nTon accès montre a expiré.\n"
+#              f"Relance l'app Peakflow et reconnecte-toi :\n"
+#              f"→ https://peakflow-technologies.com/cronos\n\n"
+#              f"L'équipe Peakflow"
+#     )
