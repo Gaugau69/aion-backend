@@ -4,6 +4,7 @@ app/routers/users.py — Endpoints de gestion des utilisateurs.
 
 import json
 
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
@@ -18,10 +19,11 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 
 class UserTokenRegister(BaseModel):
-    """Enregistrement via token pré-généré (depuis l'app desktop)."""
     name: str
     email: EmailStr
     token_json: str
+    garmin_email:    Optional[str] = None
+    garmin_password: Optional[str] = None  # chiffré côté backend avant stockage
 
 
 def _to_out(u: User) -> UserOut:
@@ -49,22 +51,35 @@ async def register_user(payload: UserCreate, db: AsyncSession = Depends(get_db))
 
 @router.post("/register-token", response_model=UserOut, status_code=201)
 async def register_with_token(payload: UserTokenRegister, db: AsyncSession = Depends(get_db)):
-    """
-    Enregistre un user avec un token Garmin pré-généré depuis l'app desktop.
-    Le login Garmin a été fait côté client — on stocke juste le token.
-    """
-    # Valide que le token_json est bien du JSON
     try:
         json.loads(payload.token_json)
     except Exception:
         raise HTTPException(400, "token_json invalide.")
 
+    # Chiffre le mot de passe si fourni
+    password_enc = None
+    if payload.garmin_password:
+        from app.services.garmin_auth import encrypt_password
+        password_enc = encrypt_password(payload.garmin_password)
+
+    values = {
+        "name":       payload.name,
+        "email":      payload.email,
+        "token_json": payload.token_json,
+    }
+    if payload.garmin_email:
+        values["garmin_email"] = payload.garmin_email
+    if password_enc:
+        values["garmin_password_enc"] = password_enc
+
+    set_dict = {k: v for k, v in values.items() if k != "name"}
+
     stmt = (
         pg_insert(User)
-        .values(name=payload.name, email=payload.email, token_json=payload.token_json)
+        .values(**values)
         .on_conflict_do_update(
             index_elements=["name"],
-            set_={"email": payload.email, "token_json": payload.token_json},
+            set_=set_dict,
         )
     )
     await db.execute(stmt)
