@@ -59,10 +59,14 @@ def parse_hrv(api: Garmin, d: date) -> dict:
     if not data:
         return {}
     s = data.get("hrvSummary", {})
+    last_night = s.get("lastNight")
+    last_night_5min = s.get("lastNight5MinHigh")
+    # Fallback : si lastNight null, utilise lastNight5MinHigh comme approximation
+    hrv_value = last_night if last_night is not None else last_night_5min
     return {
         "hrv_weekly_avg": s.get("weeklyAvg"),
-        "hrv_last_night": s.get("lastNight"),
-        "hrv_5min_high":  s.get("lastNight5MinHigh"),
+        "hrv_last_night": hrv_value,
+        "hrv_5min_high":  last_night_5min,
         "hrv_status":     s.get("status"),
         "hrv_feedback":   s.get("feedbackPhrase"),
     }
