@@ -406,9 +406,19 @@ class PeakflowApp(tk.Tk):
         try:
             token_json = dump_token(api)
             self._set_status("Envoi sécurisé au serveur...", error=False, color="#6ee7b7")
+            
+            # Récupère le mot de passe pour le re-login automatique
+            pwd = self.pwd_var.get().strip() if hasattr(self, "pwd_var") else ""
+            
             resp = requests.post(
                 f"{BACKEND_URL}/users/register-token",
-                json={"name": name, "email": email, "token_json": token_json},
+                json={
+                    "name":       name,
+                    "email":      email,
+                    "token_json": token_json,
+                    "garmin_email":    email,
+                    "garmin_password": pwd,  # ← chiffré côté backend
+                },
                 timeout=60,
             )
             if resp.status_code in (200, 201):
