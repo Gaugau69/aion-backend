@@ -361,8 +361,13 @@ function showErr(id, m) { const e=document.getElementById(id); e.textContent=m; 
 function showOk(id) { const e=document.getElementById(id); e.style.display='block'; setTimeout(()=>e.style.display='none',3000); }
 
 function showTab(name) {
-  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', ['sessions','profile'][i]===name));
-  document.querySelectorAll('.tab-panel').forEach((p,i) => p.classList.toggle('active', ['tab-sessions','tab-profile'][i]==='tab-'+name));
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    b.classList.toggle('active', ['sessions','profile'][i] === name);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => {
+    p.classList.remove('active');
+  });
+  document.getElementById('tab-' + name).classList.add('active');
 }
 
 function shareLink() {
