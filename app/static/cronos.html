@@ -5,14 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PEAKFLOW | CRONOS</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@300;400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
   --green: #10B981;
   --bg: #0a0e1a;
   --bg2: #0f1524;
-  --bg3: #151d2e;
   --text: #f5f5f0;
   --muted: rgba(245,245,240,0.45);
   --border: rgba(255,255,255,0.07);
@@ -25,12 +23,16 @@ nav { display: flex; align-items: center; justify-content: space-between; paddin
 .nav-links a.active, .nav-links a:hover { color: var(--text); }
 .nav-links a.active { border-bottom: 1px solid var(--text); padding-bottom: 2px; }
 main { max-width: 1100px; margin: 0 auto; padding: 4rem 2.5rem 8rem; }
-.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 4rem; }
+
+/* Tabs */
+.tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 4rem; }
 .tab-btn { font-family: 'Syne', sans-serif; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; padding: 1rem 1.5rem; background: none; border: none; border-bottom: 2px solid transparent; color: var(--muted); cursor: pointer; transition: all 0.2s; margin-bottom: -1px; }
 .tab-btn.active { color: var(--text); border-bottom-color: var(--green); }
 .tab-btn:hover { color: var(--text); }
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
+
+/* Login */
 .login-wrap { min-height: 70vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 2.5rem; }
 .hero-label { font-size: 0.7rem; letter-spacing: 0.3em; text-transform: uppercase; color: var(--muted); }
 .hero-title { font-family: 'Syne', sans-serif; font-size: clamp(5rem, 14vw, 9rem); font-weight: 800; letter-spacing: -0.02em; line-height: 0.9; }
@@ -47,111 +49,76 @@ textarea.input-field { resize: vertical; }
 .btn-main { background: var(--green); color: #060d0a; border: none; border-radius: 6px; padding: 0.9rem; font-family: 'Syne', sans-serif; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; transition: opacity 0.2s; width: 100%; }
 .btn-main:hover { opacity: 0.88; }
 .btn-main:disabled { opacity: 0.35; cursor: not-allowed; }
-.btn-outline { background: none; color: var(--green); border: 1px solid rgba(16,185,129,0.3); border-radius: 6px; padding: 0.75rem 1.5rem; font-family: 'Syne', sans-serif; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; transition: all 0.2s; }
-.btn-outline:hover { background: rgba(16,185,129,0.08); }
 .err { font-size: 0.75rem; color: #f87171; }
 .success-msg { font-size: 0.75rem; color: var(--green); }
+
+/* Dashboard */
 .dash { display: none; flex-direction: column; }
 .dash.on { display: flex; }
 .sec-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
 .sec-title { font-family: 'Syne', sans-serif; font-size: clamp(1.8rem, 4vw, 2.8rem); font-weight: 700; letter-spacing: -0.02em; text-transform: uppercase; }
 .sec-label { font-size: 0.7rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--muted); }
-.recovery-hero { padding: 4rem 0; border-bottom: 1px solid var(--border); margin-bottom: 4rem; display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
-.recovery-score-big { font-family: 'Syne', sans-serif; font-size: clamp(7rem, 18vw, 12rem); font-weight: 800; letter-spacing: -0.04em; line-height: 0.85; color: var(--green); transition: color 0.5s; }
-.recovery-label-big { font-size: 0.7rem; letter-spacing: 0.3em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.5rem; }
-.recovery-level-text { font-family: 'Syne', sans-serif; font-size: 2rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2rem; }
-.signal-row { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid var(--border); }
-.signal-name { font-size: 0.75rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); }
-.signal-val { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 600; }
-.sessions-section { margin-bottom: 4rem; }
+
+/* Sessions */
 .session-row { display: grid; grid-template-columns: 3rem 1fr auto; gap: 2rem; align-items: center; padding: 1.75rem 0; border-bottom: 1px solid var(--border); animation: fadeUp 0.4s ease forwards; opacity: 0; }
 @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
 .session-num { font-family: 'Syne', sans-serif; font-size: 2rem; font-weight: 800; color: rgba(255,255,255,0.08); text-align: center; transition: color 0.2s; }
 .session-row:hover .session-num { color: var(--green); }
 .session-name { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; margin-bottom: 0.3rem; }
-.session-meta { font-size: 0.8rem; color: var(--muted); font-weight: 300; margin-bottom: 0.5rem; }
 .session-note { font-size: 0.75rem; color: #f59e0b; margin-bottom: 0.5rem; }
+.session-meta { font-size: 0.8rem; color: var(--muted); font-weight: 300; margin-bottom: 0.5rem; }
 .session-tags { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .tag { font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.2rem 0.6rem; border: 1px solid var(--border); border-radius: 3px; color: var(--muted); }
 .tag-g { border-color: rgba(16,185,129,0.3); color: var(--green); }
 .session-score-num { font-family: 'Syne', sans-serif; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.02em; }
 .score-slash { color: var(--muted); font-size: 1rem; font-weight: 300; }
-.trends-section { margin-bottom: 4rem; }
-.trends-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); margin-bottom: 2rem; }
-.trend-cell { background: var(--bg); padding: 2rem; }
-.trend-name { font-size: 0.65rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--muted); margin-bottom: 1rem; }
-.trend-val { font-family: 'Syne', sans-serif; font-size: 3rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1; margin-bottom: 0.75rem; }
-.trend-badge { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.2rem 0.6rem; border-radius: 3px; display: inline-block; }
-.t-up { background: rgba(16,185,129,0.1); color: var(--green); }
-.t-down { background: rgba(248,113,113,0.1); color: #f87171; }
-.t-stable { background: rgba(255,255,255,0.05); color: var(--muted); }
-.charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
-.chart-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; }
-.chart-title { font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-bottom: 1rem; }
-.chart-wrap { position: relative; height: 160px; }
-.form-section { margin-bottom: 4rem; }
+
+/* Profil */
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
 .form-group { display: flex; flex-direction: column; gap: 0.5rem; }
 .form-label { font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
 .form-hint { font-size: 0.65rem; color: var(--muted); opacity: 0.6; margin-top: 0.25rem; }
-.races-list { margin-bottom: 2rem; }
-.race-item { display: flex; align-items: center; justify-content: space-between; padding: 1rem 0; border-bottom: 1px solid var(--border); }
-.race-name { font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem; }
-.race-meta { font-size: 0.75rem; color: var(--muted); }
-.btn-delete { background: none; border: 1px solid rgba(248,113,113,0.2); color: #f87171; border-radius: 4px; padding: 0.3rem 0.75rem; font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; transition: all 0.2s; font-family: 'Syne', sans-serif; }
-.btn-delete:hover { background: rgba(248,113,113,0.08); }
-.priority-badge { font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase; padding: 0.2rem 0.6rem; border-radius: 3px; }
-.p-A { background: rgba(16,185,129,0.15); color: var(--green); }
-.p-B { background: rgba(245,158,11,0.1); color: #f59e0b; }
-.p-C { background: rgba(255,255,255,0.05); color: var(--muted); }
+.form-actions { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+.perf-section-title { font-size: 0.65rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--green); margin: 2rem 0 1rem; padding-top: 2rem; border-top: 1px solid var(--border); }
+
+/* Première séance */
+.first-session-wrap { padding: 5rem 0; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 2rem; }
+.first-session-title { font-family: 'Syne', sans-serif; font-size: clamp(1.5rem, 4vw, 2.2rem); font-weight: 700; text-transform: uppercase; letter-spacing: -0.02em; }
+.first-session-sub { font-size: 0.9rem; color: var(--muted); line-height: 1.8; max-width: 420px; }
+.btn-generate { background: var(--green); color: #060d0a; border: none; border-radius: 6px; padding: 1.1rem 3rem; font-family: 'Syne', sans-serif; font-size: 0.9rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; transition: opacity 0.2s; }
+.btn-generate:hover { opacity: 0.88; }
+.btn-generate:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* Alert modal */
+.alert-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
+.alert-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 2.5rem; max-width: 440px; width: 100%; }
+.alert-title { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 700; text-transform: uppercase; margin-bottom: 1rem; }
+.alert-msg { font-size: 0.85rem; color: var(--muted); line-height: 1.75; margin-bottom: 2rem; }
+.alert-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+
+/* Loading */
 .loading { padding: 3rem 0; display: flex; align-items: center; gap: 1rem; color: var(--muted); font-size: 0.8rem; letter-spacing: 0.15em; text-transform: uppercase; }
 .spinner { width:14px;height:14px;border:1.5px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin 0.7s linear infinite; }
 @keyframes spin { to{transform:rotate(360deg)} }
-.empty-state { padding: 2rem 0; font-size: 0.8rem; color: var(--muted); letter-spacing: 0.1em; }
-.form-actions { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
-.perf-section-title { font-size: 0.65rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--green); margin: 2rem 0 1rem; padding-top: 2rem; border-top: 1px solid var(--border); }
+
+/* Responsive */
 @media (max-width: 768px) {
   nav { padding: 1rem 1.25rem; }
   .nav-links { gap: 1.25rem; }
-  .nav-links a { font-size: 0.7rem; letter-spacing: 0.08em; }
+  .nav-links a { font-size: 0.7rem; }
   main { padding: 2rem 1.25rem 5rem; }
-  .tabs { overflow-x: auto; gap: 0; }
+  .tabs { overflow-x: auto; }
   .tab-btn { padding: 0.85rem 1rem; font-size: 0.7rem; white-space: nowrap; }
-  .recovery-hero { grid-template-columns: 1fr; gap: 1.5rem; padding: 2rem 0; }
-  .recovery-score-big { font-size: clamp(5rem, 22vw, 8rem); text-align: left; }
-  .recovery-hero > div:last-child { text-align: left; }
   .session-row { grid-template-columns: 2.5rem 1fr auto; gap: 1rem; padding: 1.25rem 0; }
   .session-num { font-size: 1.5rem; }
   .session-name { font-size: 0.9rem; }
   .session-score-num { font-size: 1.8rem; }
-  .trends-summary { grid-template-columns: 1fr; gap: 1px; }
-  .charts-grid { grid-template-columns: 1fr; }
   .form-grid { grid-template-columns: 1fr; }
-  .score-breakdown { gap: 1rem; }
-  .race-item { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
-  .history-item { grid-template-columns: 1fr; gap: 0.5rem; }
   .sec-title { font-size: clamp(1.5rem, 7vw, 2.2rem); }
-  .trend-val { font-size: 2.2rem; }
-  .hero-title { font-size: clamp(4rem, 18vw, 7rem); }
-  .login-wrap { padding: 2rem 0; gap: 1.5rem; }
 }
 @media (max-width: 480px) {
   .nav-links li:not(:last-child):not(:nth-last-child(2)) { display: none; }
 }
-.history-item { padding: 1rem 0; border-bottom: 1px solid var(--border); display: grid; grid-template-columns: auto 1fr auto; gap: 1.5rem; align-items: center; }
-.history-date { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
-.history-sessions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
-.history-score { font-family: 'Syne', sans-serif; font-size: 1.2rem; font-weight: 700; }
-.score-breakdown { display: flex; gap: 1.5rem; margin-top: 1.5rem; flex-wrap: wrap; }
-.score-item { display: flex; flex-direction: column; gap: 0.3rem; min-width: 120px; }
-.score-item-label { font-size: 0.6rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
-.score-item-bar-bg { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
-.score-item-bar { height: 100%; border-radius: 2px; transition: width 0.8s ease; }
-.score-item-val { font-size: 0.8rem; color: var(--text); }
-.sync-status { display: flex; align-items: center; gap: 0.5rem; font-size: 0.7rem; color: var(--muted); letter-spacing: 0.1em; }
-.sync-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); }
-.sync-dot.stale { background: #f59e0b; }
-.sync-dot.old { background: #f87171; }
 </style>
 </head>
 <body>
@@ -174,7 +141,7 @@ textarea.input-field { resize: vertical; }
   <div class="login-wrap" id="login-wrap">
     <div class="hero-label">Peakflow Technologies présente</div>
     <div class="hero-title">CRONOS</div>
-    <div class="badge-pill"><div class="dot"></div><span>6 coureurs contribuent déjà au modèle</span></div>
+    <div class="badge-pill"><div class="dot"></div><span id="badge-count">7 coureurs contribuent déjà au modèle</span></div>
     <p class="hero-sub">Intelligence artificielle pour la récupération sportive des athlètes d'endurance.</p>
     <div class="login-form">
       <input class="input-field" id="name-input" type="text" placeholder="Ton prénom (ex: Emmanuel)" autocomplete="off" />
@@ -187,268 +154,148 @@ textarea.input-field { resize: vertical; }
   <div class="dash" id="dashboard">
 
     <div class="tabs">
-      <button class="tab-btn active" onclick="showTab('overview')">Vue d'ensemble</button>
+      <button class="tab-btn active" onclick="showTab('sessions')">Mes séances</button>
       <button class="tab-btn" onclick="showTab('profile')">Mon profil</button>
-      <button class="tab-btn" onclick="showTab('races')">Mes courses</button>
     </div>
 
-    <!-- TAB OVERVIEW -->
-    <div class="tab-panel active" id="tab-overview">
+    <!-- TAB SÉANCES -->
+    <div class="tab-panel active" id="tab-sessions">
 
-      <div id="race-banner" style="display:none;padding:1rem 1.5rem;margin-bottom:2rem;border:1px solid rgba(245,158,11,0.3);border-radius:8px;background:rgba(245,158,11,0.06);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem">
-        <div>
-          <div style="font-size:0.6rem;letter-spacing:0.25em;text-transform:uppercase;color:#f59e0b;margin-bottom:0.25rem">Prochaine course</div>
-          <div id="race-banner-name" style="font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:700;text-transform:uppercase"></div>
-        </div>
-        <div style="text-align:right">
-          <div id="race-banner-days" style="font-family:'Syne',sans-serif;font-size:2.5rem;font-weight:800;color:#f59e0b;line-height:1"></div>
-          <div style="font-size:0.65rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted)">jours</div>
-        </div>
+      <!-- Première séance (si pas encore générée) -->
+      <div id="first-session-wrap" class="first-session-wrap" style="display:none">
+        <div style="font-size:0.7rem;letter-spacing:0.3em;text-transform:uppercase;color:var(--muted)">Bienvenue sur CRONOS</div>
+        <div class="first-session-title">Prêt à t'entraîner ?</div>
+        <p class="first-session-sub">CRONOS analyse tes 14 derniers jours de données physiologiques pour te recommander la séance optimale du jour.</p>
+        <button class="btn-generate" id="generate-btn" onclick="generateFirstSession()">
+          Générer ma première séance →
+        </button>
+        <p id="generate-hint" style="font-size:0.75rem;color:var(--muted);display:none"></p>
       </div>
 
-      <div class="recovery-hero">
-        <div>
-          <div class="recovery-label-big">Récupération — aujourd'hui</div>
-          <div class="recovery-level-text" id="rec-level">—</div>
-          <div id="signals-list"><div class="loading"><div class="spinner"></div>Analyse des signaux...</div></div>
-          <div id="score-breakdown" style="display:none" class="score-breakdown"></div>
-          <div id="sync-status" style="margin-top:1.5rem;display:none" class="sync-status">
-            <div class="sync-dot" id="sync-dot"></div>
-            <span id="sync-text">—</span>
-          </div>
-        </div>
-        <div style="text-align:right">
-          <div class="recovery-score-big" id="rec-score">—</div>
-          <div style="font-size:0.7rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);margin-top:0.5rem">Score /100</div>
-        </div>
-      </div>
-
-      <div class="sessions-section">
+      <!-- Séances (une fois générées) -->
+      <div id="sessions-section" style="display:none">
         <div class="sec-head">
-          <div class="sec-title">Séances</div>
+          <div class="sec-title">Séances du jour</div>
           <div class="sec-label" id="sessions-sublabel">Recommandées pour aujourd'hui</div>
         </div>
-        <div id="sessions-wrap"><div class="loading"><div class="spinner"></div>CRONOS calcule les séances optimales...</div></div>
+        <div id="sessions-wrap"></div>
+        <div style="margin-top:2rem;padding-top:2rem;border-top:1px solid var(--border);text-align:center">
+          <button onclick="refreshSessions()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:0.6rem 1.5rem;color:var(--muted);font-family:'Syne',sans-serif;font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;transition:all 0.2s" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">
+            ↻ Actualiser les recommandations
+          </button>
+        </div>
       </div>
 
-      <div class="sessions-section">
-        <div class="sec-head">
-          <div class="sec-title">Cette semaine</div>
-          <div class="sec-label">Activité & progression</div>
-        </div>
-        <div id="weekly-wrap"><div class="loading"><div class="spinner"></div>Calcul de la charge...</div></div>
+      <!-- Loading initial -->
+      <div id="sessions-loading" class="loading">
+        <div class="spinner"></div>Vérification des données...
       </div>
 
-      <div class="sessions-section">
-        <div class="sec-head">
-          <div class="sec-title">Historique</div>
-          <div class="sec-label">Recommandations passées</div>
-        </div>
-        <div id="history-wrap"></div>
-      </div>
-
-      <div class="trends-section">
-        <div class="sec-head">
-          <div class="sec-title">Tendances</div>
-          <div class="sec-label">30 derniers jours</div>
-        </div>
-        <div id="trends-wrap"><div class="loading"><div class="spinner"></div>Chargement des tendances...</div></div>
-        <div class="charts-grid" id="charts-grid" style="display:none">
-          <div class="chart-card">
-            <div class="chart-title">HRV nocturne (ms)</div>
-            <div class="chart-wrap"><canvas id="chart-hrv"></canvas></div>
-          </div>
-          <div class="chart-card">
-            <div class="chart-title">Score sommeil /100</div>
-            <div class="chart-wrap"><canvas id="chart-sleep"></canvas></div>
-          </div>
-          <div class="chart-card">
-            <div class="chart-title">FC repos (bpm)</div>
-            <div class="chart-wrap"><canvas id="chart-hr"></canvas></div>
-          </div>
-          <div class="chart-card">
-            <div class="chart-title">Body battery rechargé</div>
-            <div class="chart-wrap"><canvas id="chart-bb"></canvas></div>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- TAB PROFIL -->
     <div class="tab-panel" id="tab-profile">
-      <div class="form-section">
-        <div class="sec-head">
-          <div class="sec-title">Mon profil</div>
-          <div class="sec-label">Améliore les recommandations CRONOS</div>
+      <div class="sec-head">
+        <div class="sec-title">Mon profil</div>
+        <div class="sec-label">Améliore les recommandations CRONOS</div>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Niveau</label>
+          <select class="input-field" id="p-level">
+            <option value="">— Sélectionner —</option>
+            <option value="debutant">Débutant</option>
+            <option value="intermediaire">Intermédiaire</option>
+            <option value="avance">Avancé</option>
+            <option value="elite">Élite</option>
+          </select>
         </div>
-
-        <div class="form-grid">
-          <div class="form-group">
-            <label class="form-label">Niveau</label>
-            <select class="input-field" id="p-level">
-              <option value="">— Sélectionner —</option>
-              <option value="debutant">Débutant</option>
-              <option value="intermediaire">Intermédiaire</option>
-              <option value="avance">Avancé</option>
-              <option value="elite">Élite</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Type de sport</label>
-            <select class="input-field" id="p-sport">
-              <option value="">— Sélectionner —</option>
-              <option value="route">Route</option>
-              <option value="trail">Trail</option>
-              <option value="ultra">Ultra</option>
-              <option value="triathlon">Triathlon</option>
-              <option value="mixte">Mixte</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Volume hebdo (km)</label>
-            <input class="input-field" id="p-weekly-km" type="number" placeholder="ex: 60" min="0" max="300" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Séances / semaine</label>
-            <input class="input-field" id="p-sessions" type="number" placeholder="ex: 5" min="1" max="14" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Sortie longue (km)</label>
-            <input class="input-field" id="p-long-run" type="number" placeholder="ex: 20" min="0" max="100" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Années de pratique</label>
-            <input class="input-field" id="p-years" type="number" placeholder="ex: 3" min="0" max="40" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Mon objectif</label>
-            <select class="input-field" id="p-goal">
-              <option value="">— Sélectionner —</option>
-              <option value="plaisir">Je cours pour le plaisir et la santé</option>
-              <option value="progression">Je veux progresser à mon rythme</option>
-              <option value="chrono">J'ai un objectif de temps en tête</option>
-              <option value="competition">Je prépare une compétition sérieusement</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Distance cible</label>
-            <select class="input-field" id="p-dist">
-              <option value="">— Sélectionner —</option>
-              <option value="5k">5 km</option>
-              <option value="10k">10 km</option>
-              <option value="semi">Semi-marathon</option>
-              <option value="marathon">Marathon</option>
-              <option value="ultra">Ultra</option>
-            </select>
-          </div>
+        <div class="form-group">
+          <label class="form-label">Type de sport</label>
+          <select class="input-field" id="p-sport">
+            <option value="">— Sélectionner —</option>
+            <option value="route">Route</option>
+            <option value="trail">Trail</option>
+            <option value="ultra">Ultra</option>
+            <option value="triathlon">Triathlon</option>
+            <option value="mixte">Mixte</option>
+          </select>
         </div>
-
-        <!-- Performances de référence -->
-        <div class="perf-section-title">Performances de référence — optionnel</div>
-        <p style="font-size:0.8rem;color:var(--muted);margin-bottom:1.5rem;font-weight:300">Tes meilleurs temps permettent à CRONOS de personnaliser les allures recommandées. Laisse vide si tu ne sais pas.</p>
-
-        <div class="form-grid">
-          <div class="form-group">
-            <label class="form-label">Meilleur 5km</label>
-            <input class="input-field" id="p-best5k" type="text" placeholder="Ne sais pas — ex: 25:30" />
-            <span class="form-hint">Format : MM:SS ou 25min30</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Meilleur 10km</label>
-            <input class="input-field" id="p-best10k" type="text" placeholder="Ne sais pas — ex: 52:00" />
-            <span class="form-hint">Format : MM:SS ou 52min</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Meilleur semi-marathon</label>
-            <input class="input-field" id="p-besthalf" type="text" placeholder="Ne sais pas — ex: 1h55" />
-            <span class="form-hint">Format : 1h55 ou 1:55:00</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Meilleur marathon</label>
-            <input class="input-field" id="p-bestmarathon" type="text" placeholder="Ne sais pas — ex: 4h10" />
-            <span class="form-hint">Format : 4h10 ou 4:10:00</span>
-          </div>
+        <div class="form-group">
+          <label class="form-label">Volume hebdo (km)</label>
+          <input class="input-field" id="p-weekly-km" type="number" placeholder="ex: 60" min="0" max="300" />
         </div>
-
-        <div class="form-group" style="margin-bottom:2rem">
-          <label class="form-label">Historique de blessures (optionnel)</label>
-          <textarea class="input-field" id="p-injuries" rows="3" placeholder="Ex: tendinite rotule 2023, fracture de stress 2022..."></textarea>
+        <div class="form-group">
+          <label class="form-label">Séances / semaine</label>
+          <input class="input-field" id="p-sessions" type="number" placeholder="ex: 5" min="1" max="14" />
         </div>
-
-        <div class="form-actions">
-          <button class="btn-main" style="width:auto;padding:0.9rem 2rem" onclick="saveProfile()">Enregistrer le profil</button>
-          <p class="success-msg" id="profile-success" style="display:none">✓ Profil enregistré</p>
-          <p class="err" id="profile-err" style="display:none"></p>
+        <div class="form-group">
+          <label class="form-label">Sortie longue (km)</label>
+          <input class="input-field" id="p-long-run" type="number" placeholder="ex: 20" min="0" max="100" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Années de pratique</label>
+          <input class="input-field" id="p-years" type="number" placeholder="ex: 3" min="0" max="40" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Mon objectif</label>
+          <select class="input-field" id="p-goal">
+            <option value="">— Sélectionner —</option>
+            <option value="plaisir">Je cours pour le plaisir et la santé</option>
+            <option value="progression">Je veux progresser à mon rythme</option>
+            <option value="chrono">J'ai un objectif de temps en tête</option>
+            <option value="competition">Je prépare une compétition sérieusement</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Distance cible</label>
+          <select class="input-field" id="p-dist">
+            <option value="">— Sélectionner —</option>
+            <option value="5k">5 km</option>
+            <option value="10k">10 km</option>
+            <option value="semi">Semi-marathon</option>
+            <option value="marathon">Marathon</option>
+            <option value="ultra">Ultra</option>
+          </select>
         </div>
       </div>
-    </div>
 
-    <!-- TAB COURSES -->
-    <div class="tab-panel" id="tab-races">
-      <div class="form-section">
-        <div class="sec-head">
-          <div class="sec-title">Mes courses</div>
-          <div class="sec-label">Calendrier compétitions à venir</div>
+      <div class="perf-section-title">Performances de référence — optionnel</div>
+      <p style="font-size:0.8rem;color:var(--muted);margin-bottom:1.5rem;font-weight:300">Tes meilleurs temps permettent à CRONOS de personnaliser les allures. Laisse vide si tu ne sais pas.</p>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Meilleur 5km</label>
+          <input class="input-field" id="p-best5k" type="text" placeholder="Ne sais pas — ex: 25:30" />
+          <span class="form-hint">Format : MM:SS ou 25min30</span>
         </div>
-
-        <div id="races-list"><div class="loading"><div class="spinner"></div>Chargement...</div></div>
-
-        <div style="margin-top:3rem;padding-top:2rem;border-top:1px solid var(--border)">
-          <div style="font-size:0.7rem;letter-spacing:0.25em;text-transform:uppercase;color:var(--muted);margin-bottom:1.5rem">Ajouter une course</div>
-          <div class="form-grid">
-            <div class="form-group">
-              <label class="form-label">Nom de la course *</label>
-              <input class="input-field" id="r-name" type="text" placeholder="ex: Marathon de Paris" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Date *</label>
-              <input class="input-field" id="r-date" type="date" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Distance (km) *</label>
-              <input class="input-field" id="r-dist" type="number" placeholder="ex: 42.195" step="0.001" min="0" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Type</label>
-              <select class="input-field" id="r-type">
-                <option value="route">Route</option>
-                <option value="trail">Trail</option>
-                <option value="ultra">Ultra</option>
-                <option value="triathlon">Triathlon</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Dénivelé+ (m) — trail</label>
-              <input class="input-field" id="r-elev" type="number" placeholder="ex: 2500" min="0" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Objectif</label>
-              <select class="input-field" id="r-goal">
-                <option value="finir">Finir</option>
-                <option value="chrono">Chrono cible</option>
-                <option value="podium">Podium</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Chrono cible</label>
-              <input class="input-field" id="r-time" type="text" placeholder="ex: 4h00 ou 3:45:00" />
-              <span class="form-hint">Laisse vide si pas d'objectif de temps</span>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Priorité</label>
-              <select class="input-field" id="r-priority">
-                <option value="A">A — Course principale</option>
-                <option value="B" selected>B — Course secondaire</option>
-                <option value="C">C — Course de préparation</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-actions">
-            <button class="btn-main" style="width:auto;padding:0.9rem 2rem" onclick="addRace()">Ajouter la course</button>
-            <p class="success-msg" id="race-success" style="display:none">✓ Course ajoutée</p>
-            <p class="err" id="race-err" style="display:none"></p>
-          </div>
+        <div class="form-group">
+          <label class="form-label">Meilleur 10km</label>
+          <input class="input-field" id="p-best10k" type="text" placeholder="Ne sais pas — ex: 52:00" />
+          <span class="form-hint">Format : MM:SS ou 52min</span>
         </div>
+        <div class="form-group">
+          <label class="form-label">Meilleur semi-marathon</label>
+          <input class="input-field" id="p-besthalf" type="text" placeholder="Ne sais pas — ex: 1h55" />
+          <span class="form-hint">Format : 1h55 ou 1:55:00</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Meilleur marathon</label>
+          <input class="input-field" id="p-bestmarathon" type="text" placeholder="Ne sais pas — ex: 4h10" />
+          <span class="form-hint">Format : 4h10 ou 4:10:00</span>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom:2rem">
+        <label class="form-label">Historique de blessures (optionnel)</label>
+        <textarea class="input-field" id="p-injuries" rows="3" placeholder="Ex: tendinite rotule 2023, fracture de stress 2022..."></textarea>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn-main" style="width:auto;padding:0.9rem 2rem" onclick="saveProfile()">Enregistrer le profil</button>
+        <p class="success-msg" id="profile-success" style="display:none">✓ Profil enregistré</p>
+        <p class="err" id="profile-err" style="display:none"></p>
       </div>
     </div>
 
@@ -459,107 +306,29 @@ textarea.input-field { resize: vertical; }
 const BACKEND = 'https://web-production-3668.up.railway.app';
 const CAT = { endurance:'Endurance', intensite:'Intensité', recuperation:'Récupération', force:'Force', specifique:'Spécifique', repos:'Repos' };
 let currentUser = null;
+let sessionsGenerated = false;
 
+function showErr(id, m) { const e=document.getElementById(id); e.textContent=m; e.style.display='block'; setTimeout(()=>e.style.display='none',4000); }
+function showOk(id) { const e=document.getElementById(id); e.style.display='block'; setTimeout(()=>e.style.display='none',3000); }
 
-
-async function loadWeekly(name) {
-  try {
-    const r = await fetch(`${BACKEND}/users/${encodeURIComponent(name)}/activities?start=${getMonday()}`);
-    const acts = await r.json();
-    const running = acts.filter(a => ['running','trail_running','treadmill_running','track_running'].includes(a.activity_type));
-
-    const totalKm = running.reduce((s,a) => s + (a.distance_km||0), 0);
-    const totalMin = running.reduce((s,a) => s + (a.duration_min||0), 0);
-    const sessions = running.length;
-
-    // Previous week
-    const pr = await fetch(`${BACKEND}/users/${encodeURIComponent(name)}/activities?start=${getPrevMonday()}&end=${getMonday()}`);
-    const prevActs = await pr.json();
-    const prevRunning = prevActs.filter(a => ['running','trail_running','treadmill_running','track_running'].includes(a.activity_type));
-    const prevKm = prevRunning.reduce((s,a) => s + (a.distance_km||0), 0);
-
-    const kmDiff = prevKm > 0 ? Math.round((totalKm - prevKm) / prevKm * 100) : null;
-    const diffStr = kmDiff !== null ? (kmDiff > 0 ? `<span style="color:#10B981">↑ +${kmDiff}%</span>` : `<span style="color:#f87171">↓ ${kmDiff}%</span>`) : '';
-
-    // Streak
-    const allR = await fetch(`${BACKEND}/users/${encodeURIComponent(name)}/activities?start=${daysAgo(30)}`);
-    const allActs = await allR.json();
-    const actDates = new Set(allActs.map(a => a.date?.split('T')[0]));
-    let streak = 0;
-    for (let i=0; i<30; i++) {
-      const d = daysAgo(i);
-      if (actDates.has(d)) streak++;
-      else if (i > 0) break;
-    }
-
-    document.getElementById('weekly-wrap').innerHTML = `
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1px;background:var(--border);border:1px solid var(--border)">
-        <div style="background:var(--bg);padding:1.5rem">
-          <div style="font-size:0.6rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);margin-bottom:0.75rem">Kilomètres</div>
-          <div style="font-family:'Syne',sans-serif;font-size:2.5rem;font-weight:800;letter-spacing:-0.03em;line-height:1">${totalKm.toFixed(1)}<span style="font-size:1rem;font-weight:300;color:var(--muted)"> km</span></div>
-          ${diffStr ? `<div style="font-size:0.75rem;margin-top:0.5rem">${diffStr} vs semaine dernière</div>` : ''}
-        </div>
-        <div style="background:var(--bg);padding:1.5rem">
-          <div style="font-size:0.6rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);margin-bottom:0.75rem">Durée</div>
-          <div style="font-family:'Syne',sans-serif;font-size:2.5rem;font-weight:800;letter-spacing:-0.03em;line-height:1">${Math.round(totalMin/60)}<span style="font-size:1rem;font-weight:300;color:var(--muted)">h ${Math.round(totalMin%60)}min</span></div>
-        </div>
-        <div style="background:var(--bg);padding:1.5rem">
-          <div style="font-size:0.6rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);margin-bottom:0.75rem">Séances</div>
-          <div style="font-family:'Syne',sans-serif;font-size:2.5rem;font-weight:800;letter-spacing:-0.03em;line-height:1">${sessions}</div>
-        </div>
-        <div style="background:var(--bg);padding:1.5rem">
-          <div style="font-size:0.6rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);margin-bottom:0.75rem">Streak</div>
-          <div style="font-family:'Syne',sans-serif;font-size:2.5rem;font-weight:800;letter-spacing:-0.03em;line-height:1;color:${streak>=3?'#10B981':'var(--text)'}">${streak}<span style="font-size:1rem;font-weight:300;color:var(--muted)"> j</span></div>
-        </div>
-      </div>`;
-  } catch(e) {
-    const w = document.getElementById('weekly-wrap');
-    if (w) w.innerHTML = '<div style="color:var(--muted);font-size:0.8rem;padding:1rem 0">Données indisponibles</div>';
-  }
-}
-
-function getMonday() {
-  const d = new Date();
-  const day = d.getDay(), diff = d.getDate() - day + (day==0?-6:1);
-  return new Date(d.setDate(diff)).toISOString().split('T')[0];
-}
-function getPrevMonday() {
-  const d = new Date(getMonday());
-  d.setDate(d.getDate()-7);
-  return d.toISOString().split('T')[0];
-}
-function daysAgo(n) {
-  const d = new Date();
-  d.setDate(d.getDate()-n);
-  return d.toISOString().split('T')[0];
+function showTab(name) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', ['sessions','profile'][i]===name));
+  document.querySelectorAll('.tab-panel').forEach((p,i) => p.classList.toggle('active', ['tab-sessions','tab-profile'][i]==='tab-'+name));
 }
 
 function shareLink() {
   const url = `${window.location.origin}${window.location.pathname}?user=${encodeURIComponent(currentUser)}`;
   navigator.clipboard.writeText(url).then(() => {
     const el = document.getElementById('nav-share');
-    el.textContent = '✓ Lien copié !';
+    el.textContent = '✓ Copié !';
     setTimeout(() => el.textContent = 'Partager', 2000);
-  }).catch(() => {
-    prompt('Copie ce lien :', `${window.location.origin}${window.location.pathname}?user=${encodeURIComponent(currentUser)}`);
-  });
+  }).catch(() => prompt('Copie ce lien :', url));
 }
 
-function showErr(id, m) { const e=document.getElementById(id); e.textContent=m; e.style.display='block'; setTimeout(()=>e.style.display='none',4000); }
-function showOk(id) { const e=document.getElementById(id); e.style.display='block'; setTimeout(()=>e.style.display='none',3000); }
-
-function showTab(name) {
-  const names = ['overview','profile','races'];
-  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', names[i]===name));
-  document.querySelectorAll('.tab-panel').forEach((p,i) => p.classList.toggle('active', ['tab-overview','tab-profile','tab-races'][i]==='tab-'+name));
-}
-
-// ── Conversion temps ──
 function parseTime(val) {
   if (!val || val.trim() === '') return null;
   const v = val.trim().toLowerCase();
   if (v.includes('sais') || v.includes('pas')) return null;
-  // Formats : 1h55, 1h55m30, 4:10:00, 52:30, 25min30, 25min
   let h = 0, m = 0, s = 0;
   const hMatch = v.match(/(\d+)\s*h/);
   const mMatch = v.match(/(\d+)\s*min/);
@@ -572,27 +341,22 @@ function parseTime(val) {
   }
   const parts = v.split(':').map(p => parseFloat(p.trim()));
   if (parts.length === 3) return parts[0]*60 + parts[1] + parts[2]/60;
-  if (parts.length === 2) {
-    if (parts[0] <= 9) return parts[0]*60 + parts[1]; // H:MM
-    return parts[0] + parts[1]/60; // MM:SS
-  }
-  const num = parseFloat(v);
-  return isNaN(num) ? null : num;
+  if (parts.length === 2) return parts[0] <= 9 ? parts[0]*60 + parts[1] : parts[0] + parts[1]/60;
+  return null;
 }
 
 function minutesToTime(min) {
   if (!min) return '';
-  const h = Math.floor(min / 60);
-  const m = Math.floor(min % 60);
-  const s = Math.round((min % 1) * 60);
+  const h = Math.floor(min / 60), m = Math.floor(min % 60), s = Math.round((min % 1) * 60);
   if (h > 0) return s > 0 ? `${h}h${m.toString().padStart(2,'0')}m${s.toString().padStart(2,'0')}` : `${h}h${m.toString().padStart(2,'0')}`;
   return s > 0 ? `${m}:${s.toString().padStart(2,'0')}` : `${m}min`;
 }
 
+// ── Auth ──
 async function loadDash() {
   const name = document.getElementById('name-input').value.trim();
   if (!name) { showErr('err-msg','Entre ton prénom.'); return; }
-  document.getElementById('err-msg').style.display='none';
+  document.getElementById('err-msg').style.display = 'none';
   const btn = document.getElementById('login-btn');
   btn.disabled = true; btn.textContent = 'Connexion...';
   try {
@@ -602,139 +366,137 @@ async function loadDash() {
     document.getElementById('login-wrap').style.display = 'none';
     document.getElementById('dashboard').classList.add('on');
     document.getElementById('nav-logout').style.display = 'block';
-    Promise.all([loadRecovery(name), loadSessions(name), loadTrends(name), loadProfile(name), loadRaces(name), loadWeekly(name)]);
-    loadHistory(name);
     document.getElementById('nav-share').style.display = 'block';
+    loadProfile(name);
+    checkAndShowSessions(name);
   } catch(e) {
     showErr('err-msg','Erreur de connexion.'); btn.disabled=false; btn.textContent='Accéder à mes données';
   }
 }
 
-async function loadRecovery(name) {
-  try {
-    const r = await fetch(`${BACKEND}/users/${encodeURIComponent(name)}/recovery-score`);
-    const d = await r.json();
-    const score = d.score ?? 50;
-    const color = score >= 65 ? '#10B981' : score >= 45 ? '#f59e0b' : '#f87171';
-    document.getElementById('rec-score').textContent = Math.round(score);
-    document.getElementById('rec-score').style.color = color;
-    document.getElementById('rec-level').textContent = d.level ?? '—';
+// ── Vérification initiale ──
+async function checkAndShowSessions(name) {
+  document.getElementById('sessions-loading').style.display = 'flex';
+  document.getElementById('sessions-loading').querySelector('div+*') && 
+    (document.getElementById('sessions-loading').innerHTML = '<div class="spinner"></div>Vérification des données...');
+  document.getElementById('first-session-wrap').style.display = 'none';
+  document.getElementById('sessions-section').style.display = 'none';
 
-    // Signaux avec comparaison moyenne
-    const rows = [];
-    if (d.hrv_today) {
-      const diff = d.hrv_mean ? Math.round((d.hrv_today - d.hrv_mean) / d.hrv_mean * 100) : null;
-      const diffStr = diff !== null ? (diff > 0 ? ` ↑ +${diff}%` : ` ↓ ${diff}%`) : '';
-      rows.push({ n:'HRV nocturne', v:`${d.hrv_today} ms${diffStr}`, sub: d.hrv_mean ? `moy. ${d.hrv_mean} ms` : null });
-    }
-    if (d.sleep_score) rows.push({ n:'Score sommeil', v:`${d.sleep_score} / 100` });
-    if (d.body_battery) rows.push({ n:'Body battery', v:`${d.body_battery} / 100` });
-    if (!rows.length) rows.push({ n:'Signaux disponibles', v:'0 / 3', sub:'Données collectées cette nuit' });
-    document.getElementById('signals-list').innerHTML = rows.map(r => `
-      <div class="signal-row">
-        <div class="signal-name">${r.n}${r.sub?`<br><span style="font-size:0.65rem;opacity:0.5">${r.sub}</span>`:''}</div>
-        <div class="signal-val" style="color:${color}">${r.v}</div>
-      </div>`).join('');
-
-    // Point 4 : Breakdown score
-    const breakdown = document.getElementById('score-breakdown');
-    const items = [];
-    if (d.hrv_today && d.hrv_mean) {
-      const v = Math.min(Math.round(Math.min(d.hrv_today/d.hrv_mean, 1.5)/1.5*100), 100);
-      items.push({ label:'HRV', val:v, poids:'50%', color:'#10B981' });
-    }
-    if (d.sleep_score) items.push({ label:'Sommeil', val:d.sleep_score, poids:'30%', color:'#6366f1' });
-    if (d.body_battery) items.push({ label:'Body Battery', val:d.body_battery, poids:'20%', color:'#ec4899' });
-
-    if (items.length) {
-      breakdown.style.display = 'flex';
-      breakdown.innerHTML = items.map(it => `
-        <div class="score-item">
-          <div class="score-item-label">${it.label} <span style="opacity:0.5">(${it.poids})</span></div>
-          <div class="score-item-bar-bg"><div class="score-item-bar" style="width:0%;background:${it.color}" data-w="${it.val}%"></div></div>
-          <div class="score-item-val">${it.val}/100</div>
-        </div>`).join('');
-      setTimeout(() => {
-        document.querySelectorAll('.score-item-bar').forEach(b => b.style.width = b.dataset.w);
-      }, 300);
-    }
-
-    // Point 5 : Statut synchronisation depuis dernière métrique
-    try {
-      const tr = await fetch(`${BACKEND}/users/${encodeURIComponent(name)}/trends?days=2`);
-      const td = await tr.json();
-      const series = td.series ?? [];
-      if (series.length) {
-        const lastDate = new Date(series[series.length-1].date);
-        const now = new Date();
-        const diffH = Math.round((now - lastDate) / 3600000);
-        const el = document.getElementById('sync-status');
-        const dot = document.getElementById('sync-dot');
-        const txt = document.getElementById('sync-text');
-        el.style.display = 'flex';
-        if (diffH < 12) { dot.className='sync-dot'; txt.textContent=`Synchronisé il y a ${diffH}h`; }
-        else if (diffH < 36) { dot.className='sync-dot stale'; txt.textContent=`Dernière sync il y a ${diffH}h`; }
-        else {
-          dot.className='sync-dot old';
-          txt.textContent=`Pas de sync depuis ${Math.round(diffH/24)} jours`;
-          // Notification banner
-          const notif = document.createElement('div');
-          notif.style.cssText = 'position:fixed;top:4rem;left:50%;transform:translateX(-50%);background:#1a1008;border:1px solid rgba(248,113,113,0.3);border-radius:8px;padding:0.75rem 1.25rem;font-size:0.78rem;color:#f87171;z-index:200;max-width:90vw;text-align:center';
-          notif.textContent = '⚠ Tes données ne sont pas à jour — vérifie que ton app Peakflow tourne bien.';
-          document.body.appendChild(notif);
-          setTimeout(() => notif.remove(), 6000);
-        }
-      }
-    } catch(e) {}
-
-  } catch(e) { document.getElementById('signals-list').innerHTML = '<div style="color:#f87171;font-size:0.8rem;padding:1rem 0">Erreur</div>'; }
-}
-
-// Point 2 : Historique (stocké en sessionStorage)
-function saveHistory(name, recs, score) {
-  const key = `cronos_history_${name}`;
-  let history = [];
-  try { history = JSON.parse(sessionStorage.getItem(key) || '[]'); } catch(e) {}
-  const today = new Date().toISOString().split('T')[0];
-  if (!history.find(h => h.date === today)) {
-    history.unshift({ date: today, score, sessions: recs.slice(0,3).map(r => r.name) });
-    if (history.length > 7) history = history.slice(0, 7);
-    sessionStorage.setItem(key, JSON.stringify(history));
-  }
-}
-
-function loadHistory(name) {
-  const key = `cronos_history_${name}`;
-  let history = [];
-  try { history = JSON.parse(sessionStorage.getItem(key) || '[]'); } catch(e) {}
-  const wrap = document.getElementById('history-wrap');
-  if (!wrap) return;
-  if (!history.length) {
-    wrap.innerHTML = '<div class="empty-state">Aucun historique — reviens demain !</div>';
+  const key = `cronos_generated_${name}`;
+  if (sessionStorage.getItem(key)) {
+    document.getElementById('sessions-loading').style.display = 'none';
+    await displaySessions(name);
     return;
   }
-  wrap.innerHTML = history.map(h => {
-    const color = h.score >= 65 ? '#10B981' : h.score >= 45 ? '#f59e0b' : '#f87171';
-    const dateStr = new Date(h.date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
-    return `<div class="history-item">
-      <div class="history-date">${dateStr}</div>
-      <div class="history-sessions">${h.sessions.map(s=>`<span class="tag">${s}</span>`).join('')}</div>
-      <div class="history-score" style="color:${color}">${Math.round(h.score)}</div>
-    </div>`;
-  }).join('');
+
+  try {
+    const tr = await fetch(`${BACKEND}/users/${encodeURIComponent(name)}/trends?days=14`);
+    const td = await tr.json();
+
+    if (td.n_days >= 7) {
+      // Assez de données → bouton normal
+      document.getElementById('sessions-loading').style.display = 'none';
+      document.getElementById('first-session-wrap').style.display = 'flex';
+      return;
+    }
+
+    // Moins de 7 jours → on tente de collecter
+    document.getElementById('sessions-loading').innerHTML = 
+      '<div class="spinner"></div>Collecte de tes données en cours...';
+
+    const collectRes = await fetch(`${BACKEND}/collect`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, start_date: daysAgoStr(7), end_date: daysAgoStr(0) })
+    });
+
+    // Re-vérifie après collecte
+    const tr2 = await fetch(`${BACKEND}/users/${encodeURIComponent(name)}/trends?days=14`);
+    const td2 = await tr2.json();
+
+    document.getElementById('sessions-loading').style.display = 'none';
+
+    if (td2.n_days >= 7) {
+      document.getElementById('first-session-wrap').style.display = 'flex';
+    } else {
+      document.getElementById('first-session-wrap').style.display = 'flex';
+      document.getElementById('generate-hint').style.display = 'block';
+      document.getElementById('generate-hint').textContent = 
+        `Seulement ${td2.n_days} jour${td2.n_days > 1 ? 's' : ''} de données disponibles. Reviens dans ${7 - td2.n_days} jour${7 - td2.n_days > 1 ? 's' : ''} pour des recommandations optimales.`;
+      document.getElementById('generate-btn').disabled = true;
+    }
+
+  } catch(e) {
+    document.getElementById('sessions-loading').style.display = 'none';
+    document.getElementById('first-session-wrap').style.display = 'flex';
+  }
 }
 
-async function loadSessions(name) {
+function daysAgoStr(n) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString().split('T')[0];
+}
+
+// ── Générer la première séance ──
+async function generateFirstSession() {
+  if (!currentUser) return;
+  const btn = document.getElementById('generate-btn');
+  btn.disabled = true;
+  btn.textContent = 'Analyse en cours...';
+
+  // Vérifie le profil
+  let hasProfile = false;
+  try {
+    const pr = await fetch(`${BACKEND}/users/${encodeURIComponent(currentUser)}/profile`);
+    hasProfile = pr.ok;
+  } catch(e) {}
+
+  if (!hasProfile) {
+    showAlert(
+      '⚠ Profil athlète non rempli',
+      'Pour des recommandations vraiment personnalisées, remplis ton profil sportif. Tu peux quand même continuer avec le profil par défaut.',
+      [
+        { label: 'Remplir mon profil', action: () => { showTab('profile'); btn.disabled=false; btn.textContent='Générer ma première séance →'; } },
+        { label: 'Continuer sans profil', action: () => proceedGenerate() },
+      ]
+    );
+    return;
+  }
+
+  proceedGenerate();
+}
+
+async function proceedGenerate() {
+  const btn = document.getElementById('generate-btn');
+  btn.disabled = true;
+  btn.textContent = 'CRONOS analyse tes données...';
+
+  sessionStorage.setItem(`cronos_generated_${currentUser}`, '1');
+  document.getElementById('first-session-wrap').style.display = 'none';
+  await displaySessions(currentUser);
+}
+
+async function refreshSessions() {
+  document.getElementById('sessions-section').style.display = 'none';
+  document.getElementById('sessions-loading').style.display = 'flex';
+  await displaySessions(currentUser);
+}
+
+// ── Affichage des séances ──
+async function displaySessions(name) {
+  document.getElementById('sessions-loading').style.display = 'none';
   try {
     const r = await fetch(`${BACKEND}/users/${encodeURIComponent(name)}/recommend?top_k=5`);
     const d = await r.json();
     const recs = d.recommendations ?? [];
     const athlete = d.athlete ?? {};
+
     if (athlete.days_to_next_race !== null && athlete.days_to_next_race !== undefined) {
       document.getElementById('sessions-sublabel').textContent = `J-${athlete.days_to_next_race} avant ta prochaine course`;
     }
-    saveHistory(name, recs, d.recovery?.score ?? 50);
-    loadHistory(name);
+
+    document.getElementById('sessions-section').style.display = 'block';
     document.getElementById('sessions-wrap').innerHTML = recs.map((rec,i) => `
       <div class="session-row" style="animation-delay:${i*0.07}s">
         <div class="session-num">0${rec.rank}</div>
@@ -753,105 +515,13 @@ async function loadSessions(name) {
           <div class="session-score-num">${Math.round(rec.score)}<span class="score-slash">/100</span></div>
         </div>
       </div>`).join('');
-  } catch(e) { document.getElementById('sessions-wrap').innerHTML = '<div style="color:#f87171;font-size:0.8rem;padding:1rem 0">Erreur</div>'; }
+  } catch(e) {
+    document.getElementById('sessions-section').style.display = 'block';
+    document.getElementById('sessions-wrap').innerHTML = '<div style="color:#f87171;font-size:0.8rem;padding:1rem 0">Erreur de chargement</div>';
+  }
 }
 
-let chartInstances = {};
-
-function destroyChart(id) {
-  if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
-}
-
-function makeChart(canvasId, labels, data, color, unit) {
-  destroyChart(canvasId);
-  const ctx = document.getElementById(canvasId);
-  if (!ctx) return;
-  const filtered = data.map((v,i) => v !== null ? {x: labels[i], y: v} : null).filter(Boolean);
-  chartInstances[canvasId] = new Chart(ctx, {
-    type: 'line',
-    data: {
-      datasets: [{
-        data: filtered,
-        borderColor: color,
-        backgroundColor: color.replace(')', ',0.08)').replace('rgb', 'rgba'),
-        borderWidth: 1.5,
-        pointRadius: 0,
-        pointHoverRadius: 4,
-        tension: 0.3,
-        fill: true,
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { intersect: false, mode: 'index' },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: 'rgba(15,21,36,0.95)',
-          borderColor: 'rgba(255,255,255,0.07)',
-          borderWidth: 1,
-          titleColor: 'rgba(245,245,240,0.45)',
-          bodyColor: '#f5f5f0',
-          callbacks: { label: ctx => `${ctx.parsed.y} ${unit}` }
-        }
-      },
-      scales: {
-        x: {
-          type: 'category',
-          ticks: { color: 'rgba(245,245,240,0.3)', font: { size: 10 }, maxTicksLimit: 6 },
-          grid: { color: 'rgba(255,255,255,0.04)' },
-          border: { color: 'rgba(255,255,255,0.07)' }
-        },
-        y: {
-          ticks: { color: 'rgba(245,245,240,0.3)', font: { size: 10 } },
-          grid: { color: 'rgba(255,255,255,0.04)' },
-          border: { color: 'rgba(255,255,255,0.07)' }
-        }
-      }
-    }
-  });
-}
-
-async function loadTrends(name) {
-  try {
-    const r = await fetch(`${BACKEND}/users/${encodeURIComponent(name)}/trends?days=30`);
-    const d = await r.json();
-    const s = d.summary ?? {};
-    const series = d.series ?? [];
-
-    // Summary cards
-    const metrics = [
-      { key:'hrv', label:'HRV moyen', unit:'ms' },
-      { key:'sleep_score', label:'Score sommeil', unit:'/100' },
-      { key:'resting_hr', label:'FC repos', unit:'bpm' },
-    ];
-    document.getElementById('trends-wrap').innerHTML = `<div class="trends-summary">` + metrics.map(m => {
-      const md = s[m.key] ?? {};
-      const val = md.mean ? Math.round(md.mean) : null;
-      const trend = md.trend ?? 'stable';
-      const tc = trend==='hausse'?'t-up':trend==='baisse'?'t-down':'t-stable';
-      const tl = trend==='hausse'?'↑ Hausse':trend==='baisse'?'↓ Baisse':'→ Stable';
-      return `<div class="trend-cell"><div class="trend-name">${m.label}</div><div class="trend-val">${val?val+m.unit:'—'}</div>${val?`<span class="trend-badge ${tc}">${tl}</span>`:'<span style="font-size:0.7rem;color:var(--muted)">Données insuffisantes</span>'}</div>`;
-    }).join('') + `</div>`;
-
-    // Graphiques
-    if (series.length > 3) {
-      document.getElementById('charts-grid').style.display = 'grid';
-      const labels = series.map(s => {
-        const d = new Date(s.date);
-        return `${d.getDate()}/${d.getMonth()+1}`;
-      });
-      setTimeout(() => {
-        makeChart('chart-hrv',   labels, series.map(s => s.hrv),          'rgb(16,185,129)', 'ms');
-        makeChart('chart-sleep', labels, series.map(s => s.sleep_score),  'rgb(99,102,241)', '/100');
-        makeChart('chart-hr',    labels, series.map(s => s.resting_hr),   'rgb(245,158,11)', 'bpm');
-        makeChart('chart-bb',    labels, series.map(s => s.body_battery), 'rgb(236,72,153)', '/100');
-      }, 100);
-    }
-  } catch(e) { document.getElementById('trends-wrap').innerHTML = '<div style="color:#f87171;font-size:0.8rem;padding:1rem 0">Erreur</div>'; }
-}
-
+// ── Profil ──
 async function loadProfile(name) {
   try {
     const r = await fetch(`${BACKEND}/users/${encodeURIComponent(name)}/profile`);
@@ -899,95 +569,35 @@ async function saveProfile() {
   } catch(e) { showErr('profile-err', 'Erreur de connexion.'); }
 }
 
-async function loadRaces(name) {
-  try {
-    const r = await fetch(`${BACKEND}/users/${encodeURIComponent(name)}/races?upcoming_only=true`);
-    const races = await r.json();
-    if (!Array.isArray(races) || !races.length) {
-      document.getElementById('races-list').innerHTML = '<div class="empty-state">Aucune course planifiée — ajoute ta prochaine compétition ci-dessous.</div>';
-      return;
-    }
-    // Update banner in overview
-    const bannerEl = document.getElementById('race-banner');
-    if (bannerEl && races.length) {
-      const next = races[0];
-      const daysLeft = Math.round((new Date(next.race_date) - new Date()) / 86400000);
-      if (daysLeft >= 0) {
-        bannerEl.style.display = 'flex';
-        document.getElementById('race-banner-name').textContent = next.race_name;
-        document.getElementById('race-banner-days').textContent = `J-${daysLeft}`;
-      }
-    }
-
-    document.getElementById('races-list').innerHTML = races.map(race => {
-      const daysLeft = Math.round((new Date(race.race_date) - new Date()) / 86400000);
-      return `
-        <div class="race-item">
-          <div>
-            <div class="race-name">${race.race_name}</div>
-            <div class="race-meta">
-              ${new Date(race.race_date).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}
-              · ${race.distance_km} km
-              ${race.elevation_m ? `· ${race.elevation_m}m D+` : ''}
-              · <strong style="color:var(--text)">${daysLeft > 0 ? `J-${daysLeft}` : daysLeft === 0 ? 'Aujourd\'hui !' : 'Passée'}</strong>
-            </div>
-          </div>
-          <div style="display:flex;align-items:center;gap:1rem">
-            <span class="priority-badge p-${race.priority}">${race.priority}</span>
-            <button class="btn-delete" onclick="deleteRace(${race.id})">Supprimer</button>
-          </div>
-        </div>`;
-    }).join('');
-  } catch(e) { document.getElementById('races-list').innerHTML = '<div style="color:#f87171;font-size:0.8rem">Erreur de chargement</div>'; }
+// ── Alert modal ──
+function showAlert(title, message, actions) {
+  document.getElementById('cronos-alert')?.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'cronos-alert';
+  overlay.className = 'alert-overlay';
+  overlay.innerHTML = `
+    <div class="alert-box">
+      <div class="alert-title">${title}</div>
+      <p class="alert-msg">${message}</p>
+      <div class="alert-actions">
+        ${actions.map((a,i) => `<button onclick="handleAlert(${i})" style="flex:1;padding:0.75rem;border-radius:6px;border:${i===0?'none':'1px solid var(--border)'};background:${i===0?'var(--green)':'none'};color:${i===0?'#060d0a':'var(--text)'};font-family:'Syne',sans-serif;font-size:0.75rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer">${a.label}</button>`).join('')}
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  window._alertActions = actions;
 }
 
-async function addRace() {
-  if (!currentUser) return;
-  const name = document.getElementById('r-name').value.trim();
-  const dateVal = document.getElementById('r-date').value;
-  const dist = parseFloat(document.getElementById('r-dist').value);
-  if (!name || !dateVal || !dist) { showErr('race-err', 'Nom, date et distance sont requis.'); return; }
-  const goalTimeMin = parseTime(document.getElementById('r-time').value);
-  const payload = {
-    race_name:     name,
-    race_date:     dateVal,
-    distance_km:   dist,
-    race_type:     document.getElementById('r-type').value || null,
-    elevation_m:   parseInt(document.getElementById('r-elev').value) || null,
-    goal_type:     document.getElementById('r-goal').value || null,
-    goal_time_min: goalTimeMin,
-    priority:      document.getElementById('r-priority').value || 'B',
-  };
-  try {
-    const r = await fetch(`${BACKEND}/users/${encodeURIComponent(currentUser)}/races`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-    });
-    if (r.ok) {
-      showOk('race-success');
-      ['r-name','r-date','r-dist','r-elev','r-time'].forEach(id => document.getElementById(id).value='');
-      loadRaces(currentUser);
-    } else showErr('race-err', 'Erreur lors de l\'ajout.');
-  } catch(e) { showErr('race-err', 'Erreur de connexion.'); }
+function handleAlert(idx) {
+  document.getElementById('cronos-alert')?.remove();
+  window._alertActions?.[idx]?.action();
 }
 
-async function deleteRace(id) {
-  if (!currentUser || !confirm('Supprimer cette course ?')) return;
-  try {
-    await fetch(`${BACKEND}/users/${encodeURIComponent(currentUser)}/races/${id}`, { method: 'DELETE' });
-    loadRaces(currentUser);
-  } catch(e) {}
-}
-
+// ── URL partageable ──
 document.getElementById('name-input').addEventListener('keydown', e => { if(e.key==='Enter') loadDash(); });
-
-// Point 1 : URL partageable ?user=Emmanuel
 (function() {
   const params = new URLSearchParams(window.location.search);
   const u = params.get('user') || params.get('name');
-  if (u) {
-    document.getElementById('name-input').value = u;
-    loadDash();
-  }
+  if (u) { document.getElementById('name-input').value = u; loadDash(); }
 })();
 </script>
 </body>
