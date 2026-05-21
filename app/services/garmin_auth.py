@@ -1,14 +1,19 @@
 """
 app/services/garmin_auth.py — Login Garmin et gestion des tokens OAuth.
 Compatible garminconnect >= 0.3.x
+
+Re-login automatique en cas de 401 si credentials chiffrés disponibles.
 """
 
 import json
 import logging
+import os
 import pickle
 import base64
 
+from cryptography.fernet import Fernet
 from garminconnect import Garmin, GarminConnectAuthenticationError
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,11 +22,45 @@ from app.db import User
 log = logging.getLogger(__name__)
 
 
+# ─────────────────────────────────────────────────────────────
+# Chiffrement credentials
+# ─────────────────────────────────────────────────────────────
+
+def _get_fernet() -> Fernet | None:
+    key = os.environ.get("GARMIN_ENCRYPTION_KEY")
+    if not key:
+        log.warning("GARMIN_ENCRYPTION_KEY non défini — stockage credentials désactivé")
+        return None
+    try:
+        return Fernet(key.encode())
+    except Exception as e:
+        log.error(f"Clé de chiffrement invalide : {e}")
+        return None
+
+
+def encrypt_password(password: str) -> str | None:
+    f = _get_fernet()
+    if not f:
+        return None
+    return f.encrypt(password.encode()).decode()
+
+
+def decrypt_password(encrypted: str) -> str | None:
+    f = _get_fernet()
+    if not f:
+        return None
+    try:
+        return f.decrypt(encrypted.encode()).decode()
+    except Exception as e:
+        log.error(f"Déchiffrement impossible : {e}")
+        return None
+
+
+# ─────────────────────────────────────────────────────────────
+# Helpers token
+# ─────────────────────────────────────────────────────────────
+
 def _extract_display_name_from_token(token_data: dict) -> str:
-    """
-    Extrait le display_name (UUID Garmin) depuis le JWT di_token.
-    C'est l'UUID utilisé dans les URLs de l'API Garmin.
-    """
     if token_data.get("display_name"):
         return token_data["display_name"]
 
@@ -37,12 +76,10 @@ def _extract_display_name_from_token(token_data: dict) -> str:
                 return uuid
         except Exception as e:
             log.warning(f"Impossible d'extraire display_name du JWT: {e}")
-
     return ""
 
 
 def _dump_token(api: Garmin) -> str:
-    """Sérialise la session Garmin en JSON string pour stockage DB."""
     try:
         return json.dumps(api.garth.dump())
     except AttributeError:
@@ -61,47 +98,35 @@ def _dump_token(api: Garmin) -> str:
 
 
 def _load_api(token_json: str, email: str) -> Garmin | None:
-    """Reconstruit une instance Garmin depuis le token stocké."""
     try:
         token_data = json.loads(token_json)
 
-        # Ancienne API (garth)
         if "version" not in token_data:
             api = Garmin(email, "")
             api.login(token_data)
             return api
 
-        # Nouvelle API 0.3.x — format pickle
         if token_data.get("version") == "0.3" and token_data.get("client"):
             api = Garmin(email, "")
             api.client = pickle.loads(base64.b64decode(token_data["client"]))
-
-            # Tente un refresh automatique du token
             try:
                 api.client._refresh_di_token()
-                log.info(f"Token pickle rafraîchi automatiquement pour {email}")
+                log.info(f"Token pickle rafraîchi pour {email}")
             except Exception as e:
                 log.warning(f"Refresh token pickle échoué pour {email}: {e}")
-
             display_name = _extract_display_name_from_token(token_data)
             if display_name:
                 api.display_name = display_name
                 log.info(f"display_name restauré : {display_name}")
-            else:
-                log.warning("display_name introuvable dans le token")
-
             return api
 
-        # Nouvelle API 0.3.x — format client.dumps()
         if token_data.get("version") == "0.3" and token_data.get("client_dump"):
             api = Garmin(email, "")
             api.client.loads(token_data["client_dump"])
-
             display_name = token_data.get("display_name", "")
             if display_name:
                 api.display_name = display_name
                 log.info(f"display_name restauré (dumps) : {display_name}")
-
             return api
 
     except Exception as e:
@@ -109,22 +134,99 @@ def _load_api(token_json: str, email: str) -> Garmin | None:
     return None
 
 
-async def login_and_save_token(db: AsyncSession, name: str, email: str, password: str) -> bool:
+# ─────────────────────────────────────────────────────────────
+# Re-login automatique
+# ─────────────────────────────────────────────────────────────
+
+async def _relogin(db: AsyncSession, user: User) -> Garmin | None:
+    """
+    Re-login automatique depuis les credentials chiffrés stockés.
+    Appelé quand un 401 est détecté lors de la collecte.
+    """
+    if not user.garmin_email or not user.garmin_password_enc:
+        log.warning(f"[{user.name}] Pas de credentials stockés — re-login impossible")
+        return None
+
+    password = decrypt_password(user.garmin_password_enc)
+    if not password:
+        log.error(f"[{user.name}] Déchiffrement du mot de passe échoué")
+        return None
+
+    log.info(f"[{user.name}] Re-login automatique en cours...")
+    try:
+        api = Garmin(user.garmin_email, password)
+        api.login()
+        token_json = _dump_token(api)
+
+        # Met à jour le token en DB
+        await db.execute(
+            pg_insert(User)
+            .values(name=user.name, email=user.email, token_json=token_json)
+            .on_conflict_do_update(
+                index_elements=["name"],
+                set_={"token_json": token_json},
+            )
+        )
+        await db.commit()
+        log.info(f"[{user.name}] ✓ Re-login réussi — nouveau token sauvegardé")
+        return api
+
+    except GarminConnectAuthenticationError:
+        log.error(f"[{user.name}] ✗ Re-login échoué — mauvais identifiants ?")
+        return None
+    except Exception as e:
+        log.error(f"[{user.name}] ✗ Erreur re-login : {e}")
+        return None
+
+
+# ─────────────────────────────────────────────────────────────
+# Interface principale
+# ─────────────────────────────────────────────────────────────
+
+async def login_and_save_token(
+    db: AsyncSession,
+    name: str,
+    email: str,
+    password: str,
+    save_credentials: bool = True,
+) -> bool:
     """
     Login Garmin avec email + password.
-    Sauvegarde le token en DB. Le mot de passe n'est jamais persisté.
+    Sauvegarde le token en DB.
+    Si save_credentials=True, stocke aussi les credentials chiffrés
+    pour permettre le re-login automatique en cas d'expiration.
     """
     try:
         api = Garmin(email, password)
         api.login()
         token_json = _dump_token(api)
 
+        # Chiffre le mot de passe si demandé
+        password_enc = None
+        if save_credentials:
+            password_enc = encrypt_password(password)
+            if password_enc:
+                log.info(f"[{name}] Credentials chiffrés sauvegardés")
+            else:
+                log.warning(f"[{name}] Chiffrement impossible — credentials non stockés")
+
+        values = {
+            "name":       name,
+            "email":      email,
+            "token_json": token_json,
+        }
+        if password_enc:
+            values["garmin_email"]        = email
+            values["garmin_password_enc"] = password_enc
+
+        set_dict = {k: v for k, v in values.items() if k != "name"}
+
         stmt = (
             pg_insert(User)
-            .values(name=name, email=email, token_json=token_json)
+            .values(**values)
             .on_conflict_do_update(
                 index_elements=["name"],
-                set_={"email": email, "token_json": token_json},
+                set_=set_dict,
             )
         )
         await db.execute(stmt)
@@ -140,8 +242,12 @@ async def login_and_save_token(db: AsyncSession, name: str, email: str, password
         return False
 
 
-async def get_api(db: AsyncSession, user: User) -> Garmin | None:
-    """Reconstruit une session Garmin depuis le token stocké en DB."""
+async def get_api(db: AsyncSession, user: User, auto_relogin: bool = True) -> Garmin | None:
+    """
+    Reconstruit une session Garmin depuis le token stocké en DB.
+    Si le token est invalide et que auto_relogin=True,
+    tente un re-login automatique depuis les credentials chiffrés.
+    """
     if not user.token_json:
         log.error(f"No token for {user.name}")
         return None
@@ -149,4 +255,15 @@ async def get_api(db: AsyncSession, user: User) -> Garmin | None:
     api = _load_api(user.token_json, user.email)
     if api is None:
         log.error(f"Token invalide pour {user.name}")
+        if auto_relogin:
+            log.info(f"[{user.name}] Tentative de re-login automatique...")
+            api = await _relogin(db, user)
     return api
+
+
+async def get_api_with_relogin(db: AsyncSession, user: User) -> Garmin | None:
+    """
+    Version avec re-login automatique explicite — à utiliser dans le cron.
+    Détecte les 401 et tente un re-login si credentials disponibles.
+    """
+    return await get_api(db, user, auto_relogin=True)

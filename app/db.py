@@ -44,6 +44,8 @@ class User(Base):
     email      = Column(String(255), unique=True, nullable=False)
     token_json = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    garmin_email        = Column(String(255), nullable=True)
+    garmin_password_enc = Column(String(500), nullable=True)
 
     daily_metrics   = relationship("DailyMetric",   back_populates="user", cascade="all, delete-orphan")
     activities      = relationship("Activity",      back_populates="user", cascade="all, delete-orphan")

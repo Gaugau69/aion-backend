@@ -68,6 +68,9 @@ async def collect_user_range(db: AsyncSession, user: User, start: date, end: dat
 # Garmin
 # ─────────────────────────────────────────────────────────────
 
+# Modification dans app/services/collect.py
+# Remplace _collect_garmin_range par cette version avec gestion 401
+
 async def _collect_garmin_range(db: AsyncSession, user: User, start: date, end: date) -> dict:
     api = await get_api(db, user)
     if not api:
@@ -76,39 +79,58 @@ async def _collect_garmin_range(db: AsyncSession, user: User, start: date, end: 
     days_ok = 0
     acts_ok = 0
     current = start
+    relogin_attempted = False
 
     while current <= end:
         log.info(f"[{user.name}] collecting {current}")
 
-        row = {"user_id": user.id, "date": current}
-        for parser in _GARMIN_PARSERS:
-            row.update(parser(api, current))
+        try:
+            row = {"user_id": user.id, "date": current}
+            for parser in _GARMIN_PARSERS:
+                row.update(parser(api, current))
 
-        set_dict = _safe_upsert_row(row, ("user_id", "date"))
-        await db.execute(
-            pg_insert(DailyMetric)
-            .values(**row)
-            .on_conflict_do_update(
-                constraint="uq_user_date",
-                set_=set_dict,
-            )
-        )
-        days_ok += 1
-
-        for act in parse_activities(api, current):
-            act_row = {"user_id": user.id, "date": current, **act}
-            act_set = _safe_upsert_row(act_row, ("user_id", "activity_id"))
+            set_dict = _safe_upsert_row(row, ("user_id", "date"))
             await db.execute(
-                pg_insert(Activity)
-                .values(**act_row)
+                pg_insert(DailyMetric)
+                .values(**row)
                 .on_conflict_do_update(
-                    constraint="uq_user_activity",
-                    set_=act_set,
+                    constraint="uq_user_date",
+                    set_=set_dict,
                 )
             )
-            acts_ok += 1
+            days_ok += 1
 
-        await db.commit()
+            for act in parse_activities(api, current):
+                act_row = {"user_id": user.id, "date": current, **act}
+                act_set = _safe_upsert_row(act_row, ("user_id", "activity_id"))
+                await db.execute(
+                    pg_insert(Activity)
+                    .values(**act_row)
+                    .on_conflict_do_update(
+                        constraint="uq_user_activity",
+                        set_=act_set,
+                    )
+                )
+                acts_ok += 1
+
+            await db.commit()
+
+        except Exception as e:
+            if "401" in str(e) and not relogin_attempted:
+                log.warning(f"[{user.name}] 401 détecté — tentative de re-login automatique")
+                from app.services.garmin_auth import _relogin
+                new_api = await _relogin(db, user)
+                if new_api:
+                    api = new_api
+                    relogin_attempted = True
+                    log.info(f"[{user.name}] Re-login réussi — reprise de la collecte")
+                    continue  # Retry ce jour
+                else:
+                    log.error(f"[{user.name}] Re-login échoué — arrêt de la collecte")
+                    return {"status": "error", "reason": "401 + re-login échoué"}
+            else:
+                log.error(f"[{user.name}] Erreur collecte {current}: {e}")
+
         current += timedelta(days=1)
 
     return {"status": "ok", "days": days_ok, "activities": acts_ok}
