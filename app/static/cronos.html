@@ -60,7 +60,7 @@ textarea.input-field { resize: vertical; }
 .sec-label { font-size: 0.7rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--muted); }
 
 /* Sessions */
-.session-row { display: grid; grid-template-columns: 3rem 1fr auto; gap: 2rem; align-items: start; padding: 1.75rem 0; border-bottom: 1px solid var(--border); animation: fadeUp 0.4s ease forwards; opacity: 0; cursor: pointer; transition: background 0.15s; }
+.session-row { display: grid; grid-template-columns: 3rem 1fr auto; gap: 2rem; align-items: start; padding: 1.75rem 0; border-bottom: 1px solid var(--border); animation: fadeUp 0.4s ease forwards; opacity: 0; cursor: default; transition: background 0.15s; }
 .session-row:hover { background: rgba(255,255,255,0.01); }
 @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
 .session-num { font-family: 'Syne', sans-serif; font-size: 2rem; font-weight: 800; color: rgba(255,255,255,0.08); text-align: center; transition: color 0.2s; padding-top: 0.2rem; }
@@ -76,7 +76,7 @@ textarea.input-field { resize: vertical; }
 .score-slash { color: var(--muted); font-size: 1rem; font-weight: 300; }
 
 /* Session detail */
-.session-detail { max-height: 0; overflow: hidden; transition: max-height 0.4s ease, opacity 0.3s ease; opacity: 0; }
+.session-detail { max-height: 0; overflow: hidden; transition: max-height 0.35s ease, opacity 0.25s ease; opacity: 0; }
 .session-detail.open { max-height: 500px; opacity: 1; margin-top: 1.25rem; }
 .session-detail-inner { padding: 1.5rem; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 1.25rem; }
 .detail-block-label { font-size: 0.6rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green); margin-bottom: 0.4rem; }
@@ -361,13 +361,8 @@ function showErr(id, m) { const e=document.getElementById(id); e.textContent=m; 
 function showOk(id) { const e=document.getElementById(id); e.style.display='block'; setTimeout(()=>e.style.display='none',3000); }
 
 function showTab(name) {
-  document.querySelectorAll('.tab-btn').forEach((b,i) => {
-    b.classList.toggle('active', ['sessions','profile'][i] === name);
-  });
-  document.querySelectorAll('.tab-panel').forEach(p => {
-    p.classList.remove('active');
-  });
-  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', ['sessions','profile'][i]===name));
+  document.querySelectorAll('.tab-panel').forEach((p,i) => p.classList.toggle('active', ['tab-sessions','tab-profile'][i]==='tab-'+name));
 }
 
 function shareLink() {
@@ -535,7 +530,7 @@ async function displaySessions(name) {
     document.getElementById('sessions-wrap').innerHTML = recs.map((rec,i) => {
       const det = SESSION_DETAILS[rec.id] || { why:'—', structure:'—', tip:'—' };
       return `
-      <div class="session-row" style="animation-delay:${i*0.07}s" onclick="toggleDetail(${rec.id})">
+      <div class="session-row" style="animation-delay:${i*0.07}s" onmouseenter="openDetail(${rec.id})" onmouseleave="closeDetail(${rec.id})">
         <div class="session-num">0${rec.rank}</div>
         <div style="width:100%;min-width:0">
           <div class="session-name">${rec.name}</div>
@@ -576,12 +571,20 @@ async function displaySessions(name) {
   }
 }
 
-function toggleDetail(id) {
+function openDetail(id) {
+  document.querySelectorAll('.session-detail').forEach(el => el.classList.remove('open'));
+  document.querySelectorAll('[id^="tag-expand-"]').forEach(el => el.textContent = '↓ Détails');
   const el = document.getElementById(`detail-${id}`);
   const tag = document.getElementById(`tag-expand-${id}`);
-  if (!el) return;
-  el.classList.toggle('open');
-  if (tag) tag.textContent = el.classList.contains('open') ? '↑ Fermer' : '↓ Détails';
+  if (el) el.classList.add('open');
+  if (tag) tag.textContent = '↑ Fermer';
+}
+
+function closeDetail(id) {
+  const el = document.getElementById(`detail-${id}`);
+  const tag = document.getElementById(`tag-expand-${id}`);
+  if (el) el.classList.remove('open');
+  if (tag) tag.textContent = '↓ Détails';
 }
 
 // ── Profil ──
