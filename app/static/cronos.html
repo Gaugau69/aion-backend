@@ -71,7 +71,7 @@ textarea.input-field { resize: vertical; }
 .session-tags { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .tag { font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.2rem 0.6rem; border: 1px solid var(--border); border-radius: 3px; color: var(--muted); }
 .tag-g { border-color: rgba(16,185,129,0.3); color: var(--green); }
-.tag-expand { border-color: rgba(16,185,129,0.2); color: var(--green); cursor: pointer; }
+.tag-expand { border-color: rgba(16,185,129,0.2); color: var(--green); }
 .session-score-num { font-family: 'Syne', sans-serif; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.02em; }
 .score-slash { color: var(--muted); font-size: 1rem; font-weight: 300; }
 
@@ -89,6 +89,18 @@ textarea.input-field { resize: vertical; }
 .form-hint { font-size: 0.65rem; color: var(--muted); opacity: 0.6; margin-top: 0.25rem; }
 .form-actions { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
 .perf-section-title { font-size: 0.65rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--green); margin: 2rem 0 1rem; padding-top: 2rem; border-top: 1px solid var(--border); }
+
+/* Courses */
+.race-item { display: flex; align-items: center; justify-content: space-between; padding: 1rem 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 0.75rem; }
+.race-name { font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem; }
+.race-meta { font-size: 0.75rem; color: var(--muted); }
+.btn-delete { background: none; border: 1px solid rgba(248,113,113,0.2); color: #f87171; border-radius: 4px; padding: 0.3rem 0.75rem; font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; font-family: 'Syne', sans-serif; transition: background 0.2s; }
+.btn-delete:hover { background: rgba(248,113,113,0.08); }
+.priority-badge { font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase; padding: 0.2rem 0.6rem; border-radius: 3px; }
+.p-A { background: rgba(16,185,129,0.15); color: var(--green); }
+.p-B { background: rgba(245,158,11,0.1); color: #f59e0b; }
+.p-C { background: rgba(255,255,255,0.05); color: var(--muted); }
+.empty-state { padding: 2rem 0; font-size: 0.8rem; color: var(--muted); }
 
 /* Première séance */
 .first-session-wrap { padding: 5rem 0; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 2rem; }
@@ -165,6 +177,7 @@ textarea.input-field { resize: vertical; }
     <div class="tabs">
       <button class="tab-btn active" onclick="showTab('sessions')">Mes séances</button>
       <button class="tab-btn" onclick="showTab('profile')">Mon profil</button>
+      <button class="tab-btn" onclick="showTab('races')">Mes courses</button>
     </div>
 
     <!-- TAB SÉANCES -->
@@ -301,6 +314,60 @@ textarea.input-field { resize: vertical; }
       </div>
     </div>
 
+    <!-- TAB COURSES -->
+    <div class="tab-panel" id="tab-races">
+      <div class="sec-head">
+        <div class="sec-title">Mes courses</div>
+        <div class="sec-label">Calendrier compétitions à venir</div>
+      </div>
+
+      <div id="races-list"><div class="loading"><div class="spinner"></div><span>Chargement...</span></div></div>
+
+      <div style="margin-top:3rem;padding-top:2rem;border-top:1px solid var(--border)">
+        <div style="font-size:0.7rem;letter-spacing:0.25em;text-transform:uppercase;color:var(--muted);margin-bottom:1.5rem">Ajouter une course</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Nom de la course *</label>
+            <input class="input-field" id="r-name" type="text" placeholder="ex: Marathon de Paris" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date *</label>
+            <input class="input-field" id="r-date" type="date" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Distance (km) *</label>
+            <input class="input-field" id="r-dist" type="number" placeholder="ex: 42.195" step="0.001" min="0" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Type</label>
+            <select class="input-field" id="r-type">
+              <option value="route">Route</option>
+              <option value="trail">Trail</option>
+              <option value="ultra">Ultra</option>
+              <option value="triathlon">Triathlon</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Dénivelé+ (m) — trail</label>
+            <input class="input-field" id="r-elev" type="number" placeholder="ex: 2500" min="0" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Priorité</label>
+            <select class="input-field" id="r-priority">
+              <option value="A">A — Course principale</option>
+              <option value="B" selected>B — Course secondaire</option>
+              <option value="C">C — Course de préparation</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn-main" style="width:auto;padding:0.9rem 2rem" onclick="addRace()">Ajouter la course</button>
+          <p class="success-msg" id="race-success" style="display:none">✓ Course ajoutée</p>
+          <p class="err" id="race-err" style="display:none"></p>
+        </div>
+      </div>
+    </div>
+
   </div>
 </main>
 
@@ -339,7 +406,7 @@ const SESSION_DETAILS = {
   26: { why:"Maximise la VO2max — séance la plus difficile du catalogue.", structure:"15min échauffement → 6x3min à fond avec 3min récup → 10min retour.", tip:"À éviter si fatigue, maladie ou stress important." },
   27: { why:"VO2max accessible — alterne effort max et récupération courte.", structure:"10min échauffement → 20x(30s vite + 30s trot) → 10min retour.", tip:"Le 30s rapide doit être inconfortable mais contrôlé." },
   28: { why:"Travaille différentes filières énergétiques en une séance.", structure:"15min échauffement → 200-400-600-800-600-400-200m avec récup égale → retour.", tip:"Le 800m est le cœur de la séance — donne tout." },
-  29: { why:"Développe la réactivité et la capacité à changer d'allure.", structure:"Aucune structure — cours 50min en accélérant spontanément sur des portions.", tip:"Parfait pour les coureurs qui s'ennuient des séances structurées." },
+  29: { why:"Développe la réactivité et la capacité à changer d'allure.", structure:"Aucune structure — cours 50min en accélérant spontanément.", tip:"Parfait pour les coureurs qui s'ennuient des séances structurées." },
   30: { why:"Développe la force spécifique running et la puissance.", structure:"10min échauffement → 8-10x100m côte raide avec descente marchée → 10min retour.", tip:"Monte en poussant sur l'avant-pied, bras actifs." },
   31: { why:"Endurance musculaire en montée — parfait pour trail et route vallonnée.", structure:"15min échauffement → 6x400m côte avec descente trot → 10min retour.", tip:"Contrôle la descente — c'est là que les blessures arrivent." },
   32: { why:"Affûte la vitesse spécifique 5km et améliore le seuil.", structure:"15min échauffement → 3-4x1600m allure cible avec 3min récup → 10min retour.", tip:"L'allure 5km doit être inconfortable mais tenable sur 1600m." },
@@ -361,8 +428,11 @@ function showErr(id, m) { const e=document.getElementById(id); e.textContent=m; 
 function showOk(id) { const e=document.getElementById(id); e.style.display='block'; setTimeout(()=>e.style.display='none',3000); }
 
 function showTab(name) {
-  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', ['sessions','profile'][i]===name));
-  document.querySelectorAll('.tab-panel').forEach((p,i) => p.classList.toggle('active', ['tab-sessions','tab-profile'][i]==='tab-'+name));
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    b.classList.toggle('active', ['sessions','profile','races'][i] === name);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
 }
 
 function shareLink() {
@@ -414,6 +484,7 @@ async function loadDash() {
     document.getElementById('nav-logout').style.display = 'block';
     document.getElementById('nav-share').style.display = 'block';
     loadProfile(name);
+    loadRaces(name);
     checkAndShowSessions(name);
   } catch(e) {
     showErr('err-msg','Erreur de connexion.'); btn.disabled=false; btn.textContent='Accéder à mes données';
@@ -445,7 +516,6 @@ async function checkAndShowSessions(name) {
       return;
     }
 
-    // Pas assez de données → collecte automatique
     loadingEl.innerHTML = '<div class="spinner"></div><span>Collecte de tes données en cours...</span>';
 
     await fetch(`${BACKEND}/collect`, {
@@ -465,14 +535,13 @@ async function checkAndShowSessions(name) {
       document.getElementById('generate-hint').textContent = `Seulement ${td2.n_days} jour${td2.n_days>1?'s':''} de données disponibles. Reviens dans ${7-td2.n_days} jour${7-td2.n_days>1?'s':''} pour des recommandations optimales.`;
       document.getElementById('generate-btn').disabled = true;
     }
-
   } catch(e) {
     loadingEl.style.display = 'none';
     document.getElementById('first-session-wrap').style.display = 'flex';
   }
 }
 
-// ── Générer la première séance ──
+// ── Générer ──
 async function generateFirstSession() {
   if (!currentUser) return;
   const btn = document.getElementById('generate-btn');
@@ -513,7 +582,7 @@ async function refreshSessions() {
   await displaySessions(currentUser);
 }
 
-// ── Affichage des séances ──
+// ── Affichage séances ──
 async function displaySessions(name) {
   document.getElementById('sessions-loading').style.display = 'none';
   try {
@@ -545,18 +614,9 @@ async function displaySessions(name) {
           </div>
           <div class="session-detail" id="detail-${rec.id}">
             <div class="session-detail-inner">
-              <div>
-                <div class="detail-block-label">Pourquoi cette séance</div>
-                <div class="detail-block-text">${det.why}</div>
-              </div>
-              <div>
-                <div class="detail-block-label">Structure</div>
-                <div class="detail-block-text">${det.structure}</div>
-              </div>
-              <div>
-                <div class="detail-block-label">Point d'attention</div>
-                <div class="detail-block-text">${det.tip}</div>
-              </div>
+              <div><div class="detail-block-label">Pourquoi cette séance</div><div class="detail-block-text">${det.why}</div></div>
+              <div><div class="detail-block-label">Structure</div><div class="detail-block-text">${det.structure}</div></div>
+              <div><div class="detail-block-label">Point d'attention</div><div class="detail-block-text">${det.tip}</div></div>
             </div>
           </div>
         </div>
@@ -635,7 +695,69 @@ async function saveProfile() {
   } catch(e) { showErr('profile-err', 'Erreur de connexion.'); }
 }
 
-// ── Alert modal ──
+// ── Courses ──
+async function loadRaces(name) {
+  try {
+    const r = await fetch(`${BACKEND}/users/${encodeURIComponent(name)}/races?upcoming_only=true`);
+    const races = await r.json();
+    if (!Array.isArray(races) || !races.length) {
+      document.getElementById('races-list').innerHTML = '<div class="empty-state">Aucune course planifiée — ajoute ta prochaine compétition ci-dessous.</div>';
+      return;
+    }
+    document.getElementById('races-list').innerHTML = races.map(race => {
+      const daysLeft = Math.round((new Date(race.race_date) - new Date()) / 86400000);
+      return `<div class="race-item">
+        <div>
+          <div class="race-name">${race.race_name}</div>
+          <div class="race-meta">
+            ${new Date(race.race_date).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}
+            · ${race.distance_km} km
+            ${race.elevation_m ? `· ${race.elevation_m}m D+` : ''}
+            · <strong style="color:var(--text)">${daysLeft >= 0 ? `J-${daysLeft}` : 'Passée'}</strong>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:1rem">
+          <span class="priority-badge p-${race.priority}">${race.priority}</span>
+          <button class="btn-delete" onclick="deleteRace(${race.id})">Supprimer</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) { document.getElementById('races-list').innerHTML = '<div style="color:#f87171;font-size:0.8rem">Erreur</div>'; }
+}
+
+async function addRace() {
+  if (!currentUser) return;
+  const name = document.getElementById('r-name').value.trim();
+  const dateVal = document.getElementById('r-date').value;
+  const dist = parseFloat(document.getElementById('r-dist').value);
+  if (!name || !dateVal || !dist) { showErr('race-err','Nom, date et distance sont requis.'); return; }
+  const payload = {
+    race_name: name, race_date: dateVal, distance_km: dist,
+    race_type: document.getElementById('r-type').value || null,
+    elevation_m: parseInt(document.getElementById('r-elev').value) || null,
+    priority: document.getElementById('r-priority').value || 'B',
+  };
+  try {
+    const r = await fetch(`${BACKEND}/users/${encodeURIComponent(currentUser)}/races`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+    });
+    if (r.ok) {
+      showOk('race-success');
+      ['r-name','r-date','r-dist','r-elev'].forEach(id => document.getElementById(id).value='');
+      loadRaces(currentUser);
+    } else showErr('race-err','Erreur lors de l\'ajout.');
+  } catch(e) { showErr('race-err','Erreur de connexion.'); }
+}
+
+async function deleteRace(id) {
+  if (!currentUser || !confirm('Supprimer cette course ?')) return;
+  try {
+    await fetch(`${BACKEND}/users/${encodeURIComponent(currentUser)}/races/${id}`, { method: 'DELETE' });
+    loadRaces(currentUser);
+  } catch(e) {}
+}
+
+// ── Alert ──
 function showAlert(title, message, actions) {
   document.getElementById('cronos-alert')?.remove();
   const overlay = document.createElement('div');
