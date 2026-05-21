@@ -60,9 +60,10 @@ textarea.input-field { resize: vertical; }
 .sec-label { font-size: 0.7rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--muted); }
 
 /* Sessions */
-.session-row { display: grid; grid-template-columns: 3rem 1fr auto; gap: 2rem; align-items: center; padding: 1.75rem 0; border-bottom: 1px solid var(--border); animation: fadeUp 0.4s ease forwards; opacity: 0; }
+.session-row { display: grid; grid-template-columns: 3rem 1fr auto; gap: 2rem; align-items: start; padding: 1.75rem 0; border-bottom: 1px solid var(--border); animation: fadeUp 0.4s ease forwards; opacity: 0; cursor: pointer; transition: background 0.15s; }
+.session-row:hover { background: rgba(255,255,255,0.01); }
 @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
-.session-num { font-family: 'Syne', sans-serif; font-size: 2rem; font-weight: 800; color: rgba(255,255,255,0.08); text-align: center; transition: color 0.2s; }
+.session-num { font-family: 'Syne', sans-serif; font-size: 2rem; font-weight: 800; color: rgba(255,255,255,0.08); text-align: center; transition: color 0.2s; padding-top: 0.2rem; }
 .session-row:hover .session-num { color: var(--green); }
 .session-name { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; margin-bottom: 0.3rem; }
 .session-note { font-size: 0.75rem; color: #f59e0b; margin-bottom: 0.5rem; }
@@ -70,8 +71,16 @@ textarea.input-field { resize: vertical; }
 .session-tags { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .tag { font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.2rem 0.6rem; border: 1px solid var(--border); border-radius: 3px; color: var(--muted); }
 .tag-g { border-color: rgba(16,185,129,0.3); color: var(--green); }
+.tag-expand { border-color: rgba(16,185,129,0.2); color: var(--green); cursor: pointer; }
 .session-score-num { font-family: 'Syne', sans-serif; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.02em; }
 .score-slash { color: var(--muted); font-size: 1rem; font-weight: 300; }
+
+/* Session detail */
+.session-detail { max-height: 0; overflow: hidden; transition: max-height 0.4s ease, opacity 0.3s ease; opacity: 0; }
+.session-detail.open { max-height: 500px; opacity: 1; margin-top: 1.25rem; }
+.session-detail-inner { padding: 1.5rem; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 1.25rem; }
+.detail-block-label { font-size: 0.6rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green); margin-bottom: 0.4rem; }
+.detail-block-text { font-size: 0.83rem; color: var(--muted); line-height: 1.75; }
 
 /* Profil */
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
@@ -89,7 +98,7 @@ textarea.input-field { resize: vertical; }
 .btn-generate:hover { opacity: 0.88; }
 .btn-generate:disabled { opacity: 0.35; cursor: not-allowed; }
 
-/* Alert modal */
+/* Alert */
 .alert-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
 .alert-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 2.5rem; max-width: 440px; width: 100%; }
 .alert-title { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 700; text-transform: uppercase; margin-bottom: 1rem; }
@@ -98,7 +107,7 @@ textarea.input-field { resize: vertical; }
 
 /* Loading */
 .loading { padding: 3rem 0; display: flex; align-items: center; gap: 1rem; color: var(--muted); font-size: 0.8rem; letter-spacing: 0.15em; text-transform: uppercase; }
-.spinner { width:14px;height:14px;border:1.5px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin 0.7s linear infinite; }
+.spinner { width:14px;height:14px;border:1.5px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin 0.7s linear infinite;flex-shrink:0; }
 @keyframes spin { to{transform:rotate(360deg)} }
 
 /* Responsive */
@@ -141,7 +150,7 @@ textarea.input-field { resize: vertical; }
   <div class="login-wrap" id="login-wrap">
     <div class="hero-label">Peakflow Technologies présente</div>
     <div class="hero-title">CRONOS</div>
-    <div class="badge-pill"><div class="dot"></div><span id="badge-count">7 coureurs contribuent déjà au modèle</span></div>
+    <div class="badge-pill"><div class="dot"></div><span>7 coureurs contribuent déjà au modèle</span></div>
     <p class="hero-sub">Intelligence artificielle pour la récupération sportive des athlètes d'endurance.</p>
     <div class="login-form">
       <input class="input-field" id="name-input" type="text" placeholder="Ton prénom (ex: Emmanuel)" autocomplete="off" />
@@ -161,18 +170,14 @@ textarea.input-field { resize: vertical; }
     <!-- TAB SÉANCES -->
     <div class="tab-panel active" id="tab-sessions">
 
-      <!-- Première séance (si pas encore générée) -->
       <div id="first-session-wrap" class="first-session-wrap" style="display:none">
         <div style="font-size:0.7rem;letter-spacing:0.3em;text-transform:uppercase;color:var(--muted)">Bienvenue sur CRONOS</div>
         <div class="first-session-title">Prêt à t'entraîner ?</div>
         <p class="first-session-sub">CRONOS analyse tes 14 derniers jours de données physiologiques pour te recommander la séance optimale du jour.</p>
-        <button class="btn-generate" id="generate-btn" onclick="generateFirstSession()">
-          Générer ma première séance →
-        </button>
+        <button class="btn-generate" id="generate-btn" onclick="generateFirstSession()">Générer ma première séance →</button>
         <p id="generate-hint" style="font-size:0.75rem;color:var(--muted);display:none"></p>
       </div>
 
-      <!-- Séances (une fois générées) -->
       <div id="sessions-section" style="display:none">
         <div class="sec-head">
           <div class="sec-title">Séances du jour</div>
@@ -180,15 +185,12 @@ textarea.input-field { resize: vertical; }
         </div>
         <div id="sessions-wrap"></div>
         <div style="margin-top:2rem;padding-top:2rem;border-top:1px solid var(--border);text-align:center">
-          <button onclick="refreshSessions()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:0.6rem 1.5rem;color:var(--muted);font-family:'Syne',sans-serif;font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;transition:all 0.2s" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">
-            ↻ Actualiser les recommandations
-          </button>
+          <button onclick="refreshSessions()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:0.6rem 1.5rem;color:var(--muted);font-family:'Syne',sans-serif;font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;transition:all 0.2s" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">↻ Actualiser les recommandations</button>
         </div>
       </div>
 
-      <!-- Loading initial -->
       <div id="sessions-loading" class="loading">
-        <div class="spinner"></div>Vérification des données...
+        <div class="spinner"></div><span>Vérification des données...</span>
       </div>
 
     </div>
@@ -306,7 +308,54 @@ textarea.input-field { resize: vertical; }
 const BACKEND = 'https://web-production-3668.up.railway.app';
 const CAT = { endurance:'Endurance', intensite:'Intensité', recuperation:'Récupération', force:'Force', specifique:'Spécifique', repos:'Repos' };
 let currentUser = null;
-let sessionsGenerated = false;
+
+const SESSION_DETAILS = {
+  0:  { why:"Permet au corps de récupérer sans stagnation.", structure:"Pas de structure — marche légère ou repos complet.", tip:"Ne force rien. Le repos est une séance comme les autres." },
+  1:  { why:"Réduit les courbatures et accélère l'élimination des déchets métaboliques.", structure:"20min de yoga, étirements ou foam roller.", tip:"Insiste sur les mollets, ischios et hanches." },
+  2:  { why:"Active la circulation sans créer de fatigue supplémentaire.", structure:"5min marche → 25min footing très lent → 2min marche.", tip:"Si tu dois parler fort pour être entendu, tu cours trop vite." },
+  3:  { why:"Nourrit le plaisir de courir — essentiel pour tenir sur le long terme.", structure:"Aucune structure imposée. Écoute ton corps.", tip:"Laisse la montre à la maison ou ignore-la." },
+  4:  { why:"Maintient la condition cardio sans impact sur les articulations.", structure:"5min échauffement → 35min effort modéré → 5min retour.", tip:"Idéal le lendemain d'une longue ou d'une course." },
+  5:  { why:"Récupération active sans aucun choc — parfait après une compétition.", structure:"40min nage tranquille, mix de styles.", tip:"La flottaison décomprime la colonne et les articulations." },
+  6:  { why:"Améliore la mobilité articulaire et prévient les blessures.", structure:"10min échauffement articulaire → 20min étirements ciblés.", tip:"Ne force jamais un étirement — la douleur n'est pas le but." },
+  7:  { why:"Améliore l'économie de course et la coordination neuromusculaire.", structure:"10min échauffement → 15min ABC (montées genoux, talons-fesses, skipping) → 15min footing.", tip:"Qualité sur quantité — mieux vaut 10 répétitions propres que 20 bâclées." },
+  8:  { why:"Maintient la base aérobie sans fatigue excessive.", structure:"5min marche → 25min footing facile → 2min retour calme.", tip:"Zone 2 : tu peux tenir une conversation complète." },
+  9:  { why:"Développe le moteur aérobie — la fondation de toute performance.", structure:"10min échauffement → 45min Z2 → 5min retour calme.", tip:"80% de tes entraînements devraient être à cette allure." },
+  10: { why:"Construit l'endurance et la confiance pour les débutants.", structure:"Alterne 5min course + 2min marche selon ressenti.", tip:"L'objectif est de finir en ayant encore de l'énergie." },
+  11: { why:"Développe l'endurance fondamentale et la résistance musculaire.", structure:"15min échauffement Z2 → 60min Z2 régulier → 10min retour.", tip:"Mange et bois pendant la sortie dès que > 75min." },
+  12: { why:"Développe la capacité à accélérer en fin de course.", structure:"30min facile → 30min progressif → 30min allure soutenue.", tip:"Les 30 dernières minutes doivent être les plus rapides." },
+  13: { why:"Construit le volume pour les préparations marathon et ultra.", structure:"20min échauffement → sortie longue régulière → 15min retour calme.", tip:"Ravitaille-toi toutes les 45min. Ne pars pas trop vite." },
+  14: { why:"Découverte du trail — technique et plaisir avant la performance.", structure:"Marche dans les montées, course dans les plats et descentes douces.", tip:"Raccourcis tes foulées dans les descentes pour éviter les chutes." },
+  15: { why:"Améliore la technique en terrain accidenté et la confiance.", structure:"15min échauffement → 60min travail technique → 15min retour.", tip:"Regarde 3m devant toi, pas sous tes pieds." },
+  16: { why:"Volume trail sans destruction musculaire excessive.", structure:"Marche/course selon dénivelé. Bâtons recommandés.", tip:"Mange solide dès 1h de sortie pour les longues." },
+  17: { why:"Technique ultra — monte plus vite que la marche normale sans courir.", structure:"60min power hiking en montée continue.", tip:"Mains sur les genoux dans les raidillons pour économiser les quadriceps." },
+  18: { why:"Développe l'endurance extrême et la gestion mentale.", structure:"Découper en blocs de 30min avec ravitaillement régulier.", tip:"Ne jamais partir trop vite. Le dernier tiers doit être le plus fort." },
+  19: { why:"Développe la tolérance au seuil anaérobie sur courte durée.", structure:"10min échauffement → 20min tempo → 10min retour calme.", tip:"Le tempo : tu peux parler mais seulement en courtes phrases." },
+  20: { why:"Pousse le seuil lactique vers le haut.", structure:"10min échauffement → 35-40min tempo continu → 5min retour.", tip:"Allure semi-marathon : pas confortable mais soutenable." },
+  21: { why:"Développe la résistance à l'allure sur longue durée.", structure:"15min échauffement → 45min tempo → 10min retour.", tip:"Réservé aux semaines où tu es bien récupéré." },
+  22: { why:"Développe la capacité à finir fort après de la fatigue.", structure:"20min très facile → 20min progressif → 20min allure soutenue.", tip:"Commence vraiment lentement pour finir vraiment fort." },
+  23: { why:"Initiation au travail de vitesse — adapté à tous niveaux.", structure:"10min échauffement → 8x200m rapide avec 2min marche → 10min retour.", tip:"Les 200m doivent être rapides mais pas à fond — garde du contrôle." },
+  24: { why:"Développe la vitesse et la puissance musculaire.", structure:"15min échauffement → 10x400m avec récup → 10min retour.", tip:"Récupération active entre les répétitions, pas statique." },
+  25: { why:"Développe l'endurance à allure vive.", structure:"15min échauffement → 5x1000m avec 2min récup → 10min retour.", tip:"Pace régulier sur les 1000m — ne pas partir trop vite." },
+  26: { why:"Maximise la VO2max — séance la plus difficile du catalogue.", structure:"15min échauffement → 6x3min à fond avec 3min récup → 10min retour.", tip:"À éviter si fatigue, maladie ou stress important." },
+  27: { why:"VO2max accessible — alterne effort max et récupération courte.", structure:"10min échauffement → 20x(30s vite + 30s trot) → 10min retour.", tip:"Le 30s rapide doit être inconfortable mais contrôlé." },
+  28: { why:"Travaille différentes filières énergétiques en une séance.", structure:"15min échauffement → 200-400-600-800-600-400-200m avec récup égale → retour.", tip:"Le 800m est le cœur de la séance — donne tout." },
+  29: { why:"Développe la réactivité et la capacité à changer d'allure.", structure:"Aucune structure — cours 50min en accélérant spontanément sur des portions.", tip:"Parfait pour les coureurs qui s'ennuient des séances structurées." },
+  30: { why:"Développe la force spécifique running et la puissance.", structure:"10min échauffement → 8-10x100m côte raide avec descente marchée → 10min retour.", tip:"Monte en poussant sur l'avant-pied, bras actifs." },
+  31: { why:"Endurance musculaire en montée — parfait pour trail et route vallonnée.", structure:"15min échauffement → 6x400m côte avec descente trot → 10min retour.", tip:"Contrôle la descente — c'est là que les blessures arrivent." },
+  32: { why:"Affûte la vitesse spécifique 5km et améliore le seuil.", structure:"15min échauffement → 3-4x1600m allure cible avec 3min récup → 10min retour.", tip:"L'allure 5km doit être inconfortable mais tenable sur 1600m." },
+  33: { why:"Développe la résistance à l'allure 10km.", structure:"15min échauffement → 3x2km allure cible avec 3min récup → 10min retour.", tip:"Régularité sur les 2km — chaque répétition au même rythme." },
+  34: { why:"Grave l'allure semi dans les jambes avant la course.", structure:"20min échauffement → 40min allure semi → 15min retour calme.", tip:"Cette allure doit paraître 'difficile mais faisable'." },
+  35: { why:"La séance clé marathon — construit la confiance et l'économie.", structure:"20min échauffement → 60min allure marathon → 20min retour.", tip:"Prends tes gels comme en course. Simule les conditions réelles." },
+  36: { why:"Grave l'allure cible dans les jambes — réduit le stress avant la course.", structure:"15min échauffement → 30min à l'allure envisagée → 5min retour.", tip:"Doit sembler facile — si c'est dur, ajuste l'objectif." },
+  37: { why:"Repousse le seuil lactique — améliore directement les perfs en compétition.", structure:"15min échauffement → 2x15min seuil avec 3min récup → 10min retour.", tip:"Au seuil : tu peux prononcer 3-4 mots mais pas une phrase complète." },
+  38: { why:"Endurance au seuil — version longue pour coureurs confirmés.", structure:"15min échauffement → 3x15min seuil avec 2min récup → 10min retour.", tip:"Dernière répétition doit être aussi rapide que la première." },
+  39: { why:"Réveille les jambes sans les fatiguer avant la course.", structure:"20min très facile → 4-6x20s d'accélérations légères → 5min marche.", tip:"Tu dois finir la séance en voulant courir — c'est le signe que c'est bon." },
+  40: { why:"Accélère la récupération post-compétition par circulation active.", structure:"25min trot très lent ou marche active.", tip:"Ne regarde pas la vitesse. L'objectif est juste de bouger." },
+  41: { why:"Prévient les blessures et améliore la stabilité.", structure:"3x1min gainage → 3x15 squats → 3x12 fentes → 3x20 ponts fessier.", tip:"Qualité > quantité. Stop si douleur articulaire." },
+  42: { why:"Renforce les muscles stabilisateurs et prévient les blessures de surcharge.", structure:"45min circuit : squats, fentes, hip thrust, pompes, gainage.", tip:"2-3 jours entre chaque séance de renforcement." },
+  43: { why:"Entretient la condition physique tout en récupérant mentalement.", structure:"60min en terrain naturel à allure libre.", tip:"Parfait pour sortir du cadre urbain et recharger les batteries." },
+  44: { why:"La précision de la piste permet un travail technique de qualité.", structure:"15min échauffement → 8x400m avec récup → 10min retour.", tip:"Profite de la surface pour travailler la foulée et la cadence." },
+};
 
 function showErr(id, m) { const e=document.getElementById(id); e.textContent=m; e.style.display='block'; setTimeout(()=>e.style.display='none',4000); }
 function showOk(id) { const e=document.getElementById(id); e.style.display='block'; setTimeout(()=>e.style.display='none',3000); }
@@ -329,16 +378,8 @@ function parseTime(val) {
   if (!val || val.trim() === '') return null;
   const v = val.trim().toLowerCase();
   if (v.includes('sais') || v.includes('pas')) return null;
-  let h = 0, m = 0, s = 0;
-  const hMatch = v.match(/(\d+)\s*h/);
-  const mMatch = v.match(/(\d+)\s*min/);
-  const sMatch = v.match(/(\d+)\s*s/);
-  if (hMatch || mMatch || sMatch) {
-    h = hMatch ? parseInt(hMatch[1]) : 0;
-    m = mMatch ? parseInt(mMatch[1]) : 0;
-    s = sMatch ? parseInt(sMatch[1]) : 0;
-    return h * 60 + m + s / 60;
-  }
+  const hM = v.match(/(\d+)\s*h/), mM = v.match(/(\d+)\s*min/), sM = v.match(/(\d+)\s*s/);
+  if (hM || mM || sM) return (hM?parseInt(hM[1]):0)*60 + (mM?parseInt(mM[1]):0) + (sM?parseInt(sM[1]):0)/60;
   const parts = v.split(':').map(p => parseFloat(p.trim()));
   if (parts.length === 3) return parts[0]*60 + parts[1] + parts[2]/60;
   if (parts.length === 2) return parts[0] <= 9 ? parts[0]*60 + parts[1] : parts[0] + parts[1]/60;
@@ -347,9 +388,14 @@ function parseTime(val) {
 
 function minutesToTime(min) {
   if (!min) return '';
-  const h = Math.floor(min / 60), m = Math.floor(min % 60), s = Math.round((min % 1) * 60);
+  const h=Math.floor(min/60), m=Math.floor(min%60), s=Math.round((min%1)*60);
   if (h > 0) return s > 0 ? `${h}h${m.toString().padStart(2,'0')}m${s.toString().padStart(2,'0')}` : `${h}h${m.toString().padStart(2,'0')}`;
   return s > 0 ? `${m}:${s.toString().padStart(2,'0')}` : `${m}min`;
+}
+
+function daysAgoStr(n) {
+  const d = new Date(); d.setDate(d.getDate()-n);
+  return d.toISOString().split('T')[0];
 }
 
 // ── Auth ──
@@ -376,15 +422,15 @@ async function loadDash() {
 
 // ── Vérification initiale ──
 async function checkAndShowSessions(name) {
-  document.getElementById('sessions-loading').style.display = 'flex';
-  document.getElementById('sessions-loading').querySelector('div+*') && 
-    (document.getElementById('sessions-loading').innerHTML = '<div class="spinner"></div>Vérification des données...');
+  const loadingEl = document.getElementById('sessions-loading');
+  loadingEl.style.display = 'flex';
+  loadingEl.innerHTML = '<div class="spinner"></div><span>Vérification des données...</span>';
   document.getElementById('first-session-wrap').style.display = 'none';
   document.getElementById('sessions-section').style.display = 'none';
 
   const key = `cronos_generated_${name}`;
   if (sessionStorage.getItem(key)) {
-    document.getElementById('sessions-loading').style.display = 'none';
+    loadingEl.style.display = 'none';
     await displaySessions(name);
     return;
   }
@@ -394,58 +440,44 @@ async function checkAndShowSessions(name) {
     const td = await tr.json();
 
     if (td.n_days >= 7) {
-      // Assez de données → bouton normal
-      document.getElementById('sessions-loading').style.display = 'none';
+      loadingEl.style.display = 'none';
       document.getElementById('first-session-wrap').style.display = 'flex';
       return;
     }
 
-    // Moins de 7 jours → on tente de collecter
-    document.getElementById('sessions-loading').innerHTML = 
-      '<div class="spinner"></div>Collecte de tes données en cours...';
+    // Pas assez de données → collecte automatique
+    loadingEl.innerHTML = '<div class="spinner"></div><span>Collecte de tes données en cours...</span>';
 
-    const collectRes = await fetch(`${BACKEND}/collect`, {
+    await fetch(`${BACKEND}/collect`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, start_date: daysAgoStr(7), end_date: daysAgoStr(0) })
     });
 
-    // Re-vérifie après collecte
     const tr2 = await fetch(`${BACKEND}/users/${encodeURIComponent(name)}/trends?days=14`);
     const td2 = await tr2.json();
 
-    document.getElementById('sessions-loading').style.display = 'none';
+    loadingEl.style.display = 'none';
+    document.getElementById('first-session-wrap').style.display = 'flex';
 
-    if (td2.n_days >= 7) {
-      document.getElementById('first-session-wrap').style.display = 'flex';
-    } else {
-      document.getElementById('first-session-wrap').style.display = 'flex';
+    if (td2.n_days < 7) {
       document.getElementById('generate-hint').style.display = 'block';
-      document.getElementById('generate-hint').textContent = 
-        `Seulement ${td2.n_days} jour${td2.n_days > 1 ? 's' : ''} de données disponibles. Reviens dans ${7 - td2.n_days} jour${7 - td2.n_days > 1 ? 's' : ''} pour des recommandations optimales.`;
+      document.getElementById('generate-hint').textContent = `Seulement ${td2.n_days} jour${td2.n_days>1?'s':''} de données disponibles. Reviens dans ${7-td2.n_days} jour${7-td2.n_days>1?'s':''} pour des recommandations optimales.`;
       document.getElementById('generate-btn').disabled = true;
     }
 
   } catch(e) {
-    document.getElementById('sessions-loading').style.display = 'none';
+    loadingEl.style.display = 'none';
     document.getElementById('first-session-wrap').style.display = 'flex';
   }
-}
-
-function daysAgoStr(n) {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().split('T')[0];
 }
 
 // ── Générer la première séance ──
 async function generateFirstSession() {
   if (!currentUser) return;
   const btn = document.getElementById('generate-btn');
-  btn.disabled = true;
-  btn.textContent = 'Analyse en cours...';
+  btn.disabled = true; btn.textContent = 'Analyse en cours...';
 
-  // Vérifie le profil
   let hasProfile = false;
   try {
     const pr = await fetch(`${BACKEND}/users/${encodeURIComponent(currentUser)}/profile`);
@@ -455,7 +487,7 @@ async function generateFirstSession() {
   if (!hasProfile) {
     showAlert(
       '⚠ Profil athlète non rempli',
-      'Pour des recommandations vraiment personnalisées, remplis ton profil sportif. Tu peux quand même continuer avec le profil par défaut.',
+      'Pour des recommandations vraiment personnalisées, remplis ton profil sportif dans l\'onglet "Mon profil". Tu peux quand même continuer avec un profil par défaut.',
       [
         { label: 'Remplir mon profil', action: () => { showTab('profile'); btn.disabled=false; btn.textContent='Générer ma première séance →'; } },
         { label: 'Continuer sans profil', action: () => proceedGenerate() },
@@ -463,23 +495,21 @@ async function generateFirstSession() {
     );
     return;
   }
-
   proceedGenerate();
 }
 
 async function proceedGenerate() {
-  const btn = document.getElementById('generate-btn');
-  btn.disabled = true;
-  btn.textContent = 'CRONOS analyse tes données...';
-
   sessionStorage.setItem(`cronos_generated_${currentUser}`, '1');
   document.getElementById('first-session-wrap').style.display = 'none';
+  document.getElementById('sessions-loading').style.display = 'flex';
+  document.getElementById('sessions-loading').innerHTML = '<div class="spinner"></div><span>CRONOS analyse tes données...</span>';
   await displaySessions(currentUser);
 }
 
 async function refreshSessions() {
   document.getElementById('sessions-section').style.display = 'none';
   document.getElementById('sessions-loading').style.display = 'flex';
+  document.getElementById('sessions-loading').innerHTML = '<div class="spinner"></div><span>Actualisation...</span>';
   await displaySessions(currentUser);
 }
 
@@ -497,10 +527,12 @@ async function displaySessions(name) {
     }
 
     document.getElementById('sessions-section').style.display = 'block';
-    document.getElementById('sessions-wrap').innerHTML = recs.map((rec,i) => `
-      <div class="session-row" style="animation-delay:${i*0.07}s">
+    document.getElementById('sessions-wrap').innerHTML = recs.map((rec,i) => {
+      const det = SESSION_DETAILS[rec.id] || { why:'—', structure:'—', tip:'—' };
+      return `
+      <div class="session-row" style="animation-delay:${i*0.07}s" onclick="toggleDetail(${rec.id})">
         <div class="session-num">0${rec.rank}</div>
-        <div>
+        <div style="width:100%;min-width:0">
           <div class="session-name">${rec.name}</div>
           ${rec.note ? `<div class="session-note">⚡ ${rec.note}</div>` : ''}
           <div class="session-meta">${rec.description}</div>
@@ -509,16 +541,42 @@ async function displaySessions(name) {
             ${rec.duration_min > 0 ? `<span class="tag">${rec.duration_min} min</span>` : ''}
             ${rec.distance_km > 0 ? `<span class="tag">${rec.distance_km} km</span>` : ''}
             <span class="tag">${rec.example}</span>
+            <span class="tag tag-expand" id="tag-expand-${rec.id}">↓ Détails</span>
+          </div>
+          <div class="session-detail" id="detail-${rec.id}">
+            <div class="session-detail-inner">
+              <div>
+                <div class="detail-block-label">Pourquoi cette séance</div>
+                <div class="detail-block-text">${det.why}</div>
+              </div>
+              <div>
+                <div class="detail-block-label">Structure</div>
+                <div class="detail-block-text">${det.structure}</div>
+              </div>
+              <div>
+                <div class="detail-block-label">Point d'attention</div>
+                <div class="detail-block-text">${det.tip}</div>
+              </div>
+            </div>
           </div>
         </div>
-        <div style="text-align:right">
+        <div style="text-align:right;flex-shrink:0;padding-top:0.2rem">
           <div class="session-score-num">${Math.round(rec.score)}<span class="score-slash">/100</span></div>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   } catch(e) {
     document.getElementById('sessions-section').style.display = 'block';
     document.getElementById('sessions-wrap').innerHTML = '<div style="color:#f87171;font-size:0.8rem;padding:1rem 0">Erreur de chargement</div>';
   }
+}
+
+function toggleDetail(id) {
+  const el = document.getElementById(`detail-${id}`);
+  const tag = document.getElementById(`tag-expand-${id}`);
+  if (!el) return;
+  el.classList.toggle('open');
+  if (tag) tag.textContent = el.classList.contains('open') ? '↑ Fermer' : '↓ Détails';
 }
 
 // ── Profil ──
@@ -527,19 +585,19 @@ async function loadProfile(name) {
     const r = await fetch(`${BACKEND}/users/${encodeURIComponent(name)}/profile`);
     if (!r.ok) return;
     const d = await r.json();
-    if (d.level)           document.getElementById('p-level').value = d.level;
-    if (d.sport_type)      document.getElementById('p-sport').value = d.sport_type;
-    if (d.weekly_km)       document.getElementById('p-weekly-km').value = d.weekly_km;
-    if (d.weekly_sessions) document.getElementById('p-sessions').value = d.weekly_sessions;
-    if (d.long_run_km)     document.getElementById('p-long-run').value = d.long_run_km;
-    if (d.years_running)   document.getElementById('p-years').value = d.years_running;
-    if (d.primary_goal)    document.getElementById('p-goal').value = d.primary_goal;
-    if (d.target_distance) document.getElementById('p-dist').value = d.target_distance;
-    if (d.injury_history)  document.getElementById('p-injuries').value = d.injury_history;
-    if (d.best_5k_min)      document.getElementById('p-best5k').value = minutesToTime(d.best_5k_min);
-    if (d.best_10k_min)     document.getElementById('p-best10k').value = minutesToTime(d.best_10k_min);
-    if (d.best_half_min)    document.getElementById('p-besthalf').value = minutesToTime(d.best_half_min);
-    if (d.best_marathon_min)document.getElementById('p-bestmarathon').value = minutesToTime(d.best_marathon_min);
+    if (d.level)            document.getElementById('p-level').value = d.level;
+    if (d.sport_type)       document.getElementById('p-sport').value = d.sport_type;
+    if (d.weekly_km)        document.getElementById('p-weekly-km').value = d.weekly_km;
+    if (d.weekly_sessions)  document.getElementById('p-sessions').value = d.weekly_sessions;
+    if (d.long_run_km)      document.getElementById('p-long-run').value = d.long_run_km;
+    if (d.years_running)    document.getElementById('p-years').value = d.years_running;
+    if (d.primary_goal)     document.getElementById('p-goal').value = d.primary_goal;
+    if (d.target_distance)  document.getElementById('p-dist').value = d.target_distance;
+    if (d.injury_history)   document.getElementById('p-injuries').value = d.injury_history;
+    if (d.best_5k_min)       document.getElementById('p-best5k').value = minutesToTime(d.best_5k_min);
+    if (d.best_10k_min)      document.getElementById('p-best10k').value = minutesToTime(d.best_10k_min);
+    if (d.best_half_min)     document.getElementById('p-besthalf').value = minutesToTime(d.best_half_min);
+    if (d.best_marathon_min) document.getElementById('p-bestmarathon').value = minutesToTime(d.best_marathon_min);
   } catch(e) {}
 }
 
