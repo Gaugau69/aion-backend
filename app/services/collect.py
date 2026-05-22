@@ -122,6 +122,45 @@ async def _notify_token_expired(name: str, email: str):
         log.error(f"[{name}] Exception envoi email : {e}")
 
 
+async def _notify_watch_not_worn(name: str, email: str):
+    """Envoie un email si la montre n'a pas été portée depuis 2 jours."""
+    api_key = os.environ.get("RESEND_API_KEY")
+    if not api_key:
+        return
+    from_email = os.environ.get("EMAIL_FROM", "peakflow@peakflow-technologies.com")
+    body_html = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 32px; background: #0a0e1a; color: #f5f5f0;">
+      <h2 style="color: #10B981; font-size: 1.2rem; margin-bottom: 16px;">Peakflow — Données manquantes</h2>
+      <p style="color: #94a3b8; line-height: 1.7; margin-bottom: 24px;">
+        Bonjour <strong style="color: #f5f5f0;">{name}</strong>,<br><br>
+        CRONOS n'a reçu aucune donnée de ta montre depuis 2 jours.<br>
+        Pense à la porter la nuit pour que tes recommandations restent précises !
+      </p>
+      <p style="margin-bottom: 32px;">
+        <a href="https://web-production-3668.up.railway.app/cronos"
+           style="background: #10B981; color: #060d0a; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; display: inline-block;">
+          Voir mes recommandations →
+        </a>
+      </p>
+      <p style="color: #64748b; font-size: 0.85rem;">L'équipe Peakflow</p>
+    </div>
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json={"from": from_email, "to": [email], "subject": "Peakflow — Pense à porter ta montre 🏃", "html": body_html},
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                log.info(f"[{name}] ✓ Email montre non portée envoyé")
+            else:
+                log.error(f"[{name}] Erreur email montre : {resp.status_code}")
+    except Exception as e:
+        log.error(f"[{name}] Exception email montre : {e}")
+
+
 # ─────────────────────────────────────────────────────────────
 # Garmin
 # ─────────────────────────────────────────────────────────────
@@ -308,12 +347,31 @@ async def _collect_withings_range(db: AsyncSession, user: User, start: date, end
 async def collect_all_users_yesterday(db: AsyncSession):
     """Cron job — collecte J-1 pour tous les users enregistrés."""
     yesterday = date.today() - timedelta(days=1)
+    two_days_ago = date.today() - timedelta(days=2)
     users = (await db.execute(select(User))).scalars().all()
     log.info(f"Cron: {yesterday} — {len(users)} user(s)")
     for user in users:
         try:
             summary = await collect_user_range(db, user, yesterday, yesterday)
             log.info(f"[{user.name}] {summary}")
-            # Si re-login échoué, la notification est envoyée dans _collect_garmin_range
+
+            # Vérifie si la montre n'a pas été portée depuis 2 jours
+            recent = (await db.execute(
+                select(DailyMetric)
+                .where(DailyMetric.user_id == user.id)
+                .where(DailyMetric.date >= two_days_ago)
+                .order_by(DailyMetric.date.desc())
+            )).scalars().all()
+
+            # Montre non portée = 2 jours consécutifs sans aucun signal
+            no_data = all(
+                not any([m.sleep_score, m.hrv_last_night, m.body_battery_charged, m.resting_hr])
+                for m in recent
+            ) if len(recent) >= 2 else False
+
+            if no_data:
+                log.warning(f"[{user.name}] Montre non portée depuis 2 jours — notification envoyée")
+                await _notify_watch_not_worn(user.name, user.email)
+
         except Exception as e:
             log.error(f"[{user.name}] Erreur collecte: {e}")
