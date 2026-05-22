@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db import Activity, DailyMetric, PlannedRace, User, get_db
+from app.db import Activity, AthleteProfile, DailyMetric, PlannedRace, User, get_db
 from app.schemas import ActivityOut, CollectRequest, DailyMetricOut
 from app.services.collect import collect_user_range
 
@@ -167,6 +167,16 @@ CAT_LABELS = {
     "specifique": "Spécifique", "repos": "Repos",
 }
 
+LEVEL_MAP = {"debutant": 0, "intermediaire": 1, "avance": 2, "elite": 2}
+
+DIST_SESSION_MAP = {
+    "5k":      [32, 23, 24, 29],
+    "10k":     [33, 24, 25, 37],
+    "semi":    [34, 20, 25, 22],
+    "marathon":[35, 11, 20, 12],
+    "ultra":   [16, 18, 17, 13],
+}
+
 
 def _get_user_level(avg_pace_kmh: float | None) -> int:
     if not avg_pace_kmh or avg_pace_kmh <= 0:
@@ -183,7 +193,6 @@ def _days_to_next_race_sync(races: list) -> int | None:
     upcoming = [r for r in races if not getattr(r, 'is_completed', False)]
     if not upcoming:
         return None
-    import datetime
     next_race = min(upcoming, key=lambda r: r.race_date)
     try:
         return (next_race.race_date - date.today()).days
@@ -229,6 +238,8 @@ def _rank_sessions(
     user_level: int = 0,
     days_to_race: int | None = None,
     top_k: int = 5,
+    goal: str | None = None,
+    target_dist: str | None = None,
 ) -> list[dict]:
 
     # J-1 ou J0 : activation uniquement
@@ -267,6 +278,7 @@ def _rank_sessions(
         cost = s["recovery_cost"]
         cat = s["category"]
 
+        # Score de base selon récupération
         if effective_recovery >= 0.75:
             score = 1.0 - abs(intensity - 0.75) * 0.5
         elif effective_recovery >= 0.55:
@@ -276,6 +288,7 @@ def _rank_sessions(
         else:
             score = 1.0 - abs(intensity - 0.2) * 1.1
 
+        # Pénalités fatigue
         if effective_recovery < 0.45 and cost > 0.6:
             score *= 0.35
         if effective_recovery < 0.35 and cost > 0.4:
@@ -286,11 +299,31 @@ def _rank_sessions(
             score = min(0.95, score * 1.1)
         if effective_recovery >= 0.65 and cat == "repos":
             score *= 0.3
+
+        # Logique course à venir J-7
         if days_to_race is not None and days_to_race <= 7:
             if cat == "specifique" and intensity < 0.6:
                 score = min(0.95, score * 1.2)
             if cat in ("repos", "recuperation"):
                 score = min(0.95, score * 1.15)
+
+        # ── Bonus profil athlète ──
+
+        # Objectif déclaré
+        if goal == "plaisir" and cat in ("recuperation", "endurance"):
+            score = min(0.97, score * 1.1)
+        if goal == "plaisir" and cat == "intensite":
+            score *= 0.85  # pénalise légèrement les séances intenses
+        if goal == "competition" and cat in ("intensite", "specifique") and effective_recovery >= 0.55:
+            score = min(0.97, score * 1.15)
+        if goal == "progression" and cat == "endurance":
+            score = min(0.97, score * 1.1)
+        if goal == "chrono" and cat in ("intensite", "specifique"):
+            score = min(0.97, score * 1.08)
+
+        # Distance cible → booste les séances spécifiques
+        if target_dist and s["id"] in DIST_SESSION_MAP.get(target_dist, []):
+            score = min(0.97, score * 1.2)
 
         scored.append((max(0.03, min(0.97, score)), s))
 
@@ -347,7 +380,25 @@ async def recommend_sessions(
             import numpy as np
             avg_pace_kmh = float(np.mean(speeds))
 
+    # Niveau depuis allure Garmin
     user_level = _get_user_level(avg_pace_kmh)
+
+    # Profil athlète déclaré
+    profile = (await db.execute(
+        select(AthleteProfile).where(AthleteProfile.user_id == user.id)
+    )).scalar_one_or_none()
+
+    goal        = None
+    target_dist = None
+
+    if profile:
+        # Fusionne niveau Garmin + niveau déclaré (prend le max)
+        if profile.level:
+            declared_level = LEVEL_MAP.get(profile.level, 0)
+            user_level = max(user_level, declared_level)
+
+        goal        = profile.primary_goal
+        target_dist = profile.target_distance
 
     # Prochaine course
     races = (await db.execute(
@@ -360,7 +411,7 @@ async def recommend_sessions(
 
     days_to_race = _days_to_next_race_sync(races)
 
-    recommendations = _rank_sessions(recovery, user_level, days_to_race, top_k)
+    recommendations = _rank_sessions(recovery, user_level, days_to_race, top_k, goal, target_dist)
 
     return {
         "user":  name,
@@ -376,9 +427,11 @@ async def recommend_sessions(
             **signals,
         },
         "athlete": {
-            "level": ["Débutant", "Intermédiaire", "Avancé"][user_level],
-            "avg_pace_kmh": round(avg_pace_kmh, 1) if avg_pace_kmh else None,
+            "level":             ["Débutant", "Intermédiaire", "Avancé"][user_level],
+            "avg_pace_kmh":      round(avg_pace_kmh, 1) if avg_pace_kmh else None,
             "days_to_next_race": days_to_race,
+            "goal":              goal,
+            "target_distance":   target_dist,
         },
         "recommendations": recommendations,
     }
@@ -424,7 +477,7 @@ async def get_recovery_score(name: str, db: AsyncSession = Depends(get_db)):
 @router.get("/users/{name}/trends")
 async def get_trends(
     name: str,
-    days: int = Query(30, ge=7, le=90),
+    days: int = Query(30, ge=2, le=90),
     db: AsyncSession = Depends(get_db),
 ):
     user = await _get_user(db, name)
