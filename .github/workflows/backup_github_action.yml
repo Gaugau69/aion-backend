@@ -17,23 +17,26 @@ jobs:
 
       - name: Backup Supabase
         env:
-          DB_URL: ${{ secrets.DATABASE_URL }}
+            PGPASSWORD: ${{ secrets.SUPABASE_PASSWORD }}
         run: |
-          DATE=$(date +%Y%m%d_%H%M%S)
-          BACKUP_FILE="cronos_${DATE}.dump"
-          pg_dump "$DB_URL" \
-            --format=custom \
-            --no-acl \
-            --no-owner \
-            --table=users \
-            --table=daily_metrics \
-            --table=activities \
-            --table=athlete_profiles \
-            --table=planned_races \
-            --table=session_history \
-            -f "$BACKUP_FILE"
-          echo "BACKUP_FILE=${BACKUP_FILE}" >> $GITHUB_ENV
-          echo "✓ Backup créé : ${BACKUP_FILE} ($(du -sh $BACKUP_FILE | cut -f1))"
+            DATE=$(date +%Y%m%d_%H%M%S)
+            BACKUP_FILE="cronos_${DATE}.dump"
+            pg_dump \
+                --host=aws-0-eu-west-1.pooler.supabase.com \
+                --port=5432 \
+                --username=postgres.yfbekbdjvqjsfpczotmy \
+                --dbname=postgres \
+                --format=custom \
+                --no-acl \
+                --no-owner \
+                --table=users \
+                --table=daily_metrics \
+                --table=activities \
+                --table=athlete_profiles \
+                --table=planned_races \
+                --table=session_history \
+                -f "$BACKUP_FILE"
+            echo "✓ Backup : ${BACKUP_FILE} ($(du -sh $BACKUP_FILE | cut -f1))"
 
       - name: Upload backup as artifact
         uses: actions/upload-artifact@v4
