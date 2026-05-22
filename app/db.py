@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, relationship, sessionmaker
 
 from app.config import settings
+from datetime import date
 
 # ── Connexion ──────────────────────────────────────────────────────────────
 
@@ -211,3 +212,17 @@ class PlannedRace(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User", back_populates="planned_races")
+
+
+class SessionHistory(Base):
+    __tablename__ = "session_history"
+
+    id           = Column(Integer, primary_key=True)
+    user_id      = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    session_id   = Column(Integer, nullable=False)
+    session_name = Column(String(200), nullable=False)
+    category     = Column(String(50), nullable=True)
+    duration_min = Column(Integer, nullable=True)
+    distance_km  = Column(Float, nullable=True)
+    done_at      = Column(Date, nullable=False, default=date.today)
+    created_at   = Column(DateTime(timezone=True), server_default=func.now())

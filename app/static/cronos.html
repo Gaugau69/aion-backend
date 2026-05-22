@@ -122,6 +122,18 @@ textarea.input-field { resize: vertical; }
 .spinner { width:14px;height:14px;border:1.5px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin 0.7s linear infinite;flex-shrink:0; }
 @keyframes spin { to{transform:rotate(360deg)} }
 
+/* Historique */
+.history-item { display:grid; grid-template-columns:auto 1fr auto; gap:1.5rem; align-items:center; padding:1rem 0; border-bottom:1px solid var(--border); }
+.history-date { font-size:0.7rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); white-space:nowrap; }
+.history-session-name { font-family:'Syne',sans-serif; font-size:0.9rem; font-weight:600; text-transform:uppercase; margin-bottom:0.2rem; }
+.history-meta { font-size:0.7rem; color:var(--muted); }
+.btn-remove { background:none; border:1px solid rgba(248,113,113,0.2); color:#f87171; border-radius:4px; padding:0.25rem 0.6rem; font-size:0.6rem; letter-spacing:0.1em; text-transform:uppercase; cursor:pointer; font-family:'Syne',sans-serif; transition:background 0.2s; }
+.btn-remove:hover { background:rgba(248,113,113,0.08); }
+.btn-done { background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3); color:var(--green); border-radius:4px; padding:0.3rem 0.75rem; font-size:0.65rem; letter-spacing:0.1em; text-transform:uppercase; cursor:pointer; font-family:'Syne',sans-serif; transition:all 0.2s; white-space:nowrap; }
+.btn-done:hover { background:rgba(16,185,129,0.2); }
+.btn-share { background:none; border:1px solid var(--border); border-radius:4px; padding:0.3rem 0.75rem; font-size:0.65rem; letter-spacing:0.1em; text-transform:uppercase; cursor:pointer; font-family:'Syne',sans-serif; color:var(--muted); transition:all 0.2s; }
+.btn-share:hover { color:var(--text); border-color:rgba(255,255,255,0.2); }
+
 /* Responsive */
 @media (max-width: 768px) {
   nav { padding: 1rem 1.25rem; }
@@ -176,6 +188,7 @@ textarea.input-field { resize: vertical; }
 
     <div class="tabs">
       <button class="tab-btn active" onclick="showTab('sessions')">Mes séances</button>
+      <button class="tab-btn" onclick="showTab('history')">Mon historique</button>
       <button class="tab-btn" onclick="showTab('profile')">Mon profil</button>
       <button class="tab-btn" onclick="showTab('races')">Mes courses</button>
     </div>
@@ -314,6 +327,15 @@ textarea.input-field { resize: vertical; }
       </div>
     </div>
 
+    <!-- TAB HISTORIQUE -->
+    <div class="tab-panel" id="tab-history">
+      <div class="sec-head">
+        <div class="sec-title">Mon historique</div>
+        <div class="sec-label">Séances effectuées</div>
+      </div>
+      <div id="history-list"><div class="loading"><div class="spinner"></div><span>Chargement...</span></div></div>
+    </div>
+
     <!-- TAB COURSES -->
     <div class="tab-panel" id="tab-races">
       <div class="sec-head">
@@ -429,10 +451,11 @@ function showOk(id) { const e=document.getElementById(id); e.style.display='bloc
 
 function showTab(name) {
   document.querySelectorAll('.tab-btn').forEach((b,i) => {
-    b.classList.toggle('active', ['sessions','profile','races'][i] === name);
+    b.classList.toggle('active', ['sessions','history','profile','races'][i] === name);
   });
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'history') loadHistory(currentUser);
 }
 
 function shareLink() {
@@ -629,6 +652,10 @@ async function displaySessions(name) {
             <span class="tag">${rec.example}</span>
             <span class="tag tag-expand" id="tag-expand-${rec.id}">↓ Détails</span>
           </div>
+          <div style="display:flex;gap:0.5rem;margin-top:0.75rem;flex-wrap:wrap">
+            <button class="btn-done" onclick="event.stopPropagation();markDone(${rec.id},'${rec.name}','${rec.category}',${rec.duration_min},${rec.distance_km})">✓ Je fais cette séance</button>
+            <button class="btn-share" onclick="event.stopPropagation();shareSession('${rec.name}','${rec.category}',${rec.duration_min},${rec.distance_km})">↗ Partager</button>
+          </div>
           <div class="session-detail" id="detail-${rec.id}">
             <div class="session-detail-inner">
               <div><div class="detail-block-label">Pourquoi cette séance</div><div class="detail-block-text">${det.why}</div></div>
@@ -772,6 +799,84 @@ async function deleteRace(id) {
     await fetch(`${BACKEND}/users/${encodeURIComponent(currentUser)}/races/${id}`, { method: 'DELETE' });
     loadRaces(currentUser);
   } catch(e) {}
+}
+
+// ── Historique séances ──
+async function loadHistory(name) {
+  const wrap = document.getElementById('history-list');
+  if (!wrap) return;
+  wrap.innerHTML = '<div class="loading"><div class="spinner"></div><span>Chargement...</span></div>';
+  try {
+    const r = await fetch(`${BACKEND}/users/${encodeURIComponent(name)}/session-history?days=30`);
+    const entries = await r.json();
+    if (!Array.isArray(entries) || !entries.length) {
+      wrap.innerHTML = '<div class="empty-state">Aucune séance enregistrée — clique "Je fais cette séance" pour commencer !</div>';
+      return;
+    }
+    const CAT_FR = { endurance:'Endurance', intensite:'Intensité', recuperation:'Récupération', force:'Force', specifique:'Spécifique', repos:'Repos' };
+    wrap.innerHTML = entries.map(e => {
+      const d = new Date(e.done_at);
+      const dateStr = d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
+      const meta = [e.category ? CAT_FR[e.category]??e.category : null, e.duration_min ? `${e.duration_min} min` : null, e.distance_km ? `${e.distance_km} km` : null].filter(Boolean).join(' · ');
+      return `<div class="history-item">
+        <div class="history-date">${dateStr}</div>
+        <div>
+          <div class="history-session-name">${e.session_name}</div>
+          ${meta ? `<div class="history-meta">${meta}</div>` : ''}
+        </div>
+        <button class="btn-remove" onclick="removeHistory(${e.id})">Retirer</button>
+      </div>`;
+    }).join('');
+  } catch(err) {
+    wrap.innerHTML = '<div style="color:#f87171;font-size:0.8rem">Erreur de chargement</div>';
+  }
+}
+
+async function markDone(sessionId, sessionName, category, durationMin, distanceKm) {
+  if (!currentUser) return;
+  try {
+    await fetch(`${BACKEND}/session-history`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: currentUser,
+        session_id: sessionId,
+        session_name: sessionName,
+        category: category,
+        duration_min: durationMin || null,
+        distance_km: distanceKm || null,
+      })
+    });
+    // Feedback visuel
+    const btn = event?.target;
+    if (btn) { btn.textContent = '✓ Enregistré !'; btn.style.background = 'rgba(16,185,129,0.3)'; setTimeout(() => { btn.textContent = '✓ Je fais cette séance'; btn.style.background = ''; }, 2000); }
+  } catch(e) { console.error('markDone error', e); }
+}
+
+async function removeHistory(entryId) {
+  if (!currentUser || !confirm("Retirer cette séance de l'historique ?")) return;
+  try {
+    await fetch(`${BACKEND}/session-history/${entryId}`, { method: 'DELETE' });
+    loadHistory(currentUser);
+  } catch(e) {}
+}
+
+function shareSession(name, category, durationMin, distanceKm) {
+  const CAT_FR = { endurance:'Endurance', intensite:'Intensité', recuperation:'Récupération', force:'Force', specifique:'Spécifique', repos:'Repos' };
+  const cat = CAT_FR[category] ?? category;
+  const meta = [durationMin ? `${durationMin}min` : null, distanceKm ? `${distanceKm}km` : null].filter(Boolean).join(' · ');
+  const text = `🏃 Ma séance CRONOS du jour : ${name}${meta ? ` (${meta})` : ''}
+
+💚 Recommandé par CRONOS — Intelligence artificielle pour la récupération sportive
+→ peakflow-technologies.com/cronos`;
+  if (navigator.share) {
+    navigator.share({ title: 'Ma séance CRONOS', text }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = event?.target;
+      if (btn) { btn.textContent = '✓ Copié !'; setTimeout(() => btn.textContent = '↗ Partager', 2000); }
+    });
+  }
 }
 
 // ── Alert ──

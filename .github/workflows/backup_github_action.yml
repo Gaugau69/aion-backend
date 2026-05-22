@@ -1,0 +1,43 @@
+# .github/workflows/backup.yml
+# Backup automatique DB toutes les nuits à 02:00 UTC (avant le cron de collecte)
+
+name: DB Backup
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # 02:00 UTC chaque nuit
+  workflow_dispatch:      # Déclenchement manuel possible
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install pg_dump
+        run: sudo apt-get install -y postgresql-client
+
+      - name: Backup Supabase
+        env:
+          DB_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          DATE=$(date +%Y%m%d_%H%M%S)
+          BACKUP_FILE="cronos_${DATE}.dump"
+          pg_dump "$DB_URL" \
+            --format=custom \
+            --no-acl \
+            --no-owner \
+            --table=users \
+            --table=daily_metrics \
+            --table=activities \
+            --table=athlete_profiles \
+            --table=planned_races \
+            --table=session_history \
+            -f "$BACKUP_FILE"
+          echo "BACKUP_FILE=${BACKUP_FILE}" >> $GITHUB_ENV
+          echo "✓ Backup créé : ${BACKUP_FILE} ($(du -sh $BACKUP_FILE | cut -f1))"
+
+      - name: Upload backup as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_number }}
+          path: "*.dump"
+          retention-days: 30

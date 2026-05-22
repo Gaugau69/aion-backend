@@ -17,6 +17,8 @@ from app.config import settings
 from app.db import AsyncSessionLocal, init_db
 from app.routers import data, users, polar, withings, profile
 from app.services.collect import collect_all_users_yesterday
+from app.logging_config import setup_logging
+setup_logging()
 
 log = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler()
@@ -25,9 +27,24 @@ STATIC_DIR = Path(__file__).parent / "static"
 
 
 async def _daily_job():
-    log.info("⏰ Cron : collecte quotidienne")
+    """
+    Cron job quotidien — 03:00 UTC
+    1. Vérifie et rafraîchit les tokens expirés (re-login préventif)
+    2. Collecte les métriques J-1 pour tous les utilisateurs
+    """
+    log.info("=== CRON START ===")
     async with AsyncSessionLocal() as db:
+        # Re-login préventif avant la collecte
+        try:
+            from app.services.garmin_auth import check_and_refresh_tokens
+            await check_and_refresh_tokens(db)
+        except Exception as e:
+            log.error(f"Erreur vérification tokens : {e}")
+ 
+        # Collecte normale
+        from app.services.collect import collect_all_users_yesterday
         await collect_all_users_yesterday(db)
+    log.info("=== CRON END ===")
 
 
 @asynccontextmanager

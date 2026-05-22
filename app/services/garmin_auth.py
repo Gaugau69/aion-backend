@@ -267,3 +267,34 @@ async def get_api_with_relogin(db: AsyncSession, user: User) -> Garmin | None:
     Détecte les 401 et tente un re-login si credentials disponibles.
     """
     return await get_api(db, user, auto_relogin=True)
+
+
+async def check_and_refresh_tokens(db: AsyncSession) -> None:
+    """
+    Vérifie tous les tokens au démarrage du cron.
+    Si un token est proche de l'expiration, tente un re-login préventif.
+    """
+    from sqlalchemy import select
+    users = (await db.execute(select(User))).scalars().all()
+
+    for user in users:
+        if not user.token_json:
+            continue
+        try:
+            token_data = json.loads(user.token_json)
+            # Vérifie si le token client_dump est valide en reconstruisant l'API
+            api = _load_api(user.token_json, user.email or "")
+            if api is None:
+                log.warning(f"[{user.name}] Token invalide détecté au démarrage — re-login préventif")
+                await _relogin(db, user)
+            else:
+                # Tente un appel léger pour vérifier si le token est encore actif
+                try:
+                    api.get_user_summary(date.today().isoformat())
+                    log.info(f"[{user.name}] Token valide ✓")
+                except Exception as e:
+                    if "401" in str(e):
+                        log.warning(f"[{user.name}] Token expiré détecté — re-login préventif")
+                        await _relogin(db, user)
+        except Exception as e:
+            log.error(f"[{user.name}] Erreur vérification token : {e}")
