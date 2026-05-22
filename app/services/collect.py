@@ -6,8 +6,10 @@ Supporte Garmin, Polar et Withings — détecte automatiquement le provider depu
 
 import json
 import logging
+import os
 from datetime import date, timedelta
 
+import httpx
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,7 +34,6 @@ _GARMIN_PARSERS = [
 
 
 def _get_provider(user: User) -> str:
-    """Détecte le provider (garmin/polar/withings) depuis le token."""
     if not user.token_json:
         return "unknown"
     try:
@@ -43,16 +44,11 @@ def _get_provider(user: User) -> str:
 
 
 def _safe_upsert_row(row: dict, exclude_keys: tuple) -> dict:
-    """
-    Retourne un dict de mise à jour sans les clés exclues et non vide.
-    Évite le ValueError: set parameter dictionary must not be empty.
-    """
     set_dict = {k: v for k, v in row.items() if k not in exclude_keys}
     return set_dict if set_dict else {"user_id": row.get("user_id")}
 
 
 async def collect_user_range(db: AsyncSession, user: User, start: date, end: date) -> dict:
-    """Collecte toutes les métriques d'un user entre start et end, upsert en DB."""
     provider = _get_provider(user)
     log.info(f"[{user.name}] provider: {provider}")
 
@@ -65,11 +61,70 @@ async def collect_user_range(db: AsyncSession, user: User, start: date, end: dat
 
 
 # ─────────────────────────────────────────────────────────────
-# Garmin
+# Notification email via Resend
 # ─────────────────────────────────────────────────────────────
 
-# Modification dans app/services/collect.py
-# Remplace _collect_garmin_range par cette version avec gestion 401
+async def _notify_token_expired(name: str, email: str):
+    """
+    Envoie un email à l'utilisateur quand son token expire
+    et que le re-login automatique a échoué.
+    Utilise Resend API.
+    """
+    api_key = os.environ.get("RESEND_API_KEY")
+    if not api_key:
+        log.warning(f"[{name}] RESEND_API_KEY non défini — email non envoyé")
+        return
+
+    from_email = os.environ.get("EMAIL_FROM", "peakflow@peakflow-technologies.com")
+
+    body_html = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 32px; background: #0a0e1a; color: #f5f5f0;">
+      <h2 style="color: #10B981; font-size: 1.2rem; margin-bottom: 16px;">Peakflow — Reconnexion requise</h2>
+      <p style="color: #94a3b8; line-height: 1.7; margin-bottom: 24px;">
+        Bonjour <strong style="color: #f5f5f0;">{name}</strong>,<br><br>
+        Ton accès à ta montre a expiré et la reconnexion automatique n'a pas fonctionné.<br>
+        Tes données ne sont plus collectées depuis hier.
+      </p>
+      <p style="margin-bottom: 32px;">
+        <a href="https://peakflow-technologies.com/cronos"
+           style="background: #10B981; color: #060d0a; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; display: inline-block;">
+          Reconnecter ma montre →
+        </a>
+      </p>
+      <p style="color: #64748b; font-size: 0.85rem; line-height: 1.6;">
+        Télécharge l'app Peakflow, connecte-toi avec tes identifiants Garmin ou Polar, et tes données reprendront automatiquement cette nuit.<br><br>
+        L'équipe Peakflow
+      </p>
+    </div>
+    """
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "from":    from_email,
+                    "to":      [email],
+                    "subject": "Peakflow — Reconnexion requise",
+                    "html":    body_html,
+                },
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                log.info(f"[{name}] ✓ Email de notification envoyé à {email}")
+            else:
+                log.error(f"[{name}] Erreur envoi email : {resp.status_code} — {resp.text}")
+    except Exception as e:
+        log.error(f"[{name}] Exception envoi email : {e}")
+
+
+# ─────────────────────────────────────────────────────────────
+# Garmin
+# ─────────────────────────────────────────────────────────────
 
 async def _collect_garmin_range(db: AsyncSession, user: User, start: date, end: date) -> dict:
     api = await get_api(db, user)
@@ -124,9 +179,10 @@ async def _collect_garmin_range(db: AsyncSession, user: User, start: date, end: 
                     api = new_api
                     relogin_attempted = True
                     log.info(f"[{user.name}] Re-login réussi — reprise de la collecte")
-                    continue  # Retry ce jour
+                    continue
                 else:
-                    log.error(f"[{user.name}] Re-login échoué — arrêt de la collecte")
+                    log.error(f"[{user.name}] Re-login échoué — notification email envoyée")
+                    await _notify_token_expired(user.name, user.email)
                     return {"status": "error", "reason": "401 + re-login échoué"}
             else:
                 log.error(f"[{user.name}] Erreur collecte {current}: {e}")
@@ -258,21 +314,6 @@ async def collect_all_users_yesterday(db: AsyncSession):
         try:
             summary = await collect_user_range(db, user, yesterday, yesterday)
             log.info(f"[{user.name}] {summary}")
+            # Si re-login échoué, la notification est envoyée dans _collect_garmin_range
         except Exception as e:
             log.error(f"[{user.name}] Erreur collecte: {e}")
-            # ── NOTIFICATION EMAIL TOKEN EXPIRÉ — À ACTIVER AU LANCEMENT ──
-            # if "401" in str(e) or "token invalide" in str(e):
-            #     await _notify_token_expired(user.name, user.email)
-
-# ── À ACTIVER AU LANCEMENT ──
-# async def _notify_token_expired(name: str, email: str):
-#     """Envoie un email quand le token Garmin/Polar expire."""
-#     from app.services.email import send_email  # à brancher sur le service d'Antoine
-#     await send_email(
-#         to=email,
-#         subject="Peakflow — Reconnexion requise",
-#         body=f"Bonjour {name},\n\nTon accès montre a expiré.\n"
-#              f"Relance l'app Peakflow et reconnecte-toi :\n"
-#              f"→ https://peakflow-technologies.com/cronos\n\n"
-#              f"L'équipe Peakflow"
-#     )
