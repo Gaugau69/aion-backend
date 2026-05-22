@@ -20,6 +20,8 @@ from app.services.collect import collect_all_users_yesterday
 from app.logging_config import setup_logging
 setup_logging()
 
+from app.routers.session_history_router import router as session_history_router
+
 log = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler()
 
@@ -77,6 +79,7 @@ app.include_router(data.router)
 app.include_router(polar.router)
 app.include_router(withings.router)
 app.include_router(profile.router)
+app.include_router(session_history_router)
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
