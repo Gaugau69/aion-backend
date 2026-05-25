@@ -21,6 +21,8 @@ from app.logging_config import setup_logging
 setup_logging()
 
 from app.routers.session_history_router import router as session_history_router
+from app.api import routes as routes_router  
+from app.api import pacing as pacing_router
 
 log = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler()
@@ -80,6 +82,8 @@ app.include_router(polar.router)
 app.include_router(withings.router)
 app.include_router(profile.router)
 app.include_router(session_history_router)
+app.include_router(routes_router.router)
+app.include_router(pacing_router.router)
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 

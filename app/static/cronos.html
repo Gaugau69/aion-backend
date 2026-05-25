@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PEAKFLOW | CRONOS</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@300;400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -77,10 +79,107 @@ textarea.input-field { resize: vertical; }
 
 /* Session detail */
 .session-detail { max-height: 0; overflow: hidden; transition: max-height 0.35s ease, opacity 0.25s ease; opacity: 0; }
-.session-detail.open { max-height: 500px; opacity: 1; margin-top: 1.25rem; }
+.session-detail.open { max-height: 800px; opacity: 1; margin-top: 1.25rem; }
 .session-detail-inner { padding: 1.5rem; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 1.25rem; }
 .detail-block-label { font-size: 0.6rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green); margin-bottom: 0.4rem; }
 .detail-block-text { font-size: 0.83rem; color: var(--muted); line-height: 1.75; }
+
+/* Mini-map dans le détail de séance */
+.session-map {
+  width: 100%;
+  height: 240px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  position: relative;
+}
+.session-map-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 0.75rem;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1rem;
+  text-align: center;
+}
+.session-map-empty button {
+  background: rgba(16,185,129,0.1);
+  border: 1px solid rgba(16,185,129,0.3);
+  color: var(--green);
+  border-radius: 4px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: 'Syne', sans-serif;
+  transition: background 0.2s;
+}
+.session-map-empty button:hover { background: rgba(16,185,129,0.2); }
+.session-map-inner { width: 100%; height: 100%; }
+.map-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 6px;
+  z-index: 400;
+}
+.map-action-btn, .map-refresh-btn {
+  height: 32px;
+  border-radius: 6px;
+  background: rgba(10,14,26,0.92);
+  border: 1px solid rgba(16,185,129,0.3);
+  color: var(--green);
+  cursor: pointer;
+  transition: all 0.2s;
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Syne', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0 0.7rem;
+  white-space: nowrap;
+}
+.map-action-btn:hover, .map-refresh-btn:hover { background: rgba(16,185,129,0.15); }
+.map-refresh-btn {
+  width: 32px;
+  padding: 0;
+  font-size: 1.1rem;
+  border-radius: 50%;
+}
+.map-refresh-btn.spinning { animation: spin 0.7s linear infinite; }
+.map-info {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  background: rgba(10,14,26,0.92);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.7rem;
+  color: var(--text);
+  z-index: 400;
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: 'Syne', sans-serif;
+  letter-spacing: 0.05em;
+}
+.map-info .spinner { width: 10px; height: 10px; border-width: 1.5px; }
+.leaflet-container { background: var(--bg2) !important; font-family: 'DM Sans', sans-serif; }
+.leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.85); }
 
 /* Profil */
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
@@ -127,12 +226,82 @@ textarea.input-field { resize: vertical; }
 .history-date { font-size:0.7rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); white-space:nowrap; }
 .history-session-name { font-family:'Syne',sans-serif; font-size:0.9rem; font-weight:600; text-transform:uppercase; margin-bottom:0.2rem; }
 .history-meta { font-size:0.7rem; color:var(--muted); }
-.btn-remove { background:none; border:1px solid rgba(248,113,113,0.2); color:#f87171; border-radius:4px; padding:0.25rem 0.6rem; font-size:0.6rem; letter-spacing:0.1em; text-transform:uppercase; cursor:pointer; font-family:'Syne',sans-serif; transition:background 0.2s; }
+.btn-remove { background:none; border:1px solid rgba(248,113,113,0.2); color:#f87171; border-radius:4px; padding:0.25rem 0.6rem; font-size:0.6rem; letter-spacing:0.1em; text-transform:uppercase; cursor:pointer; font-family:'Syne',sans-serif; transition:background 0.2s; display:inline-flex; align-items:center; gap:4px; }
 .btn-remove:hover { background:rgba(248,113,113,0.08); }
-.btn-done { background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3); color:var(--green); border-radius:4px; padding:0.3rem 0.75rem; font-size:0.65rem; letter-spacing:0.1em; text-transform:uppercase; cursor:pointer; font-family:'Syne',sans-serif; transition:all 0.2s; white-space:nowrap; }
+.btn-remove.removing { background:rgba(248,113,113,0.2) !important; animation: successPulse 0.5s ease; }
+.btn-remove.removing svg path { stroke-dasharray: 24; stroke-dashoffset: 24; animation: checkDraw 0.4s ease forwards 0.1s; }
+
+/* Item d'historique qui disparaît en glissant */
+@keyframes slideOutRight {
+  0%   { opacity: 1; transform: translateX(0); max-height: 100px; padding-top: 1rem; padding-bottom: 1rem; margin-top: 0; }
+  100% { opacity: 0; transform: translateX(40px); max-height: 0; padding-top: 0; padding-bottom: 0; margin-top: 0; border-bottom-color: transparent; }
+}
+.history-item.removing {
+  animation: slideOutRight 0.4s ease forwards 0.4s;
+  overflow: hidden;
+}
+.btn-done { background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3); color:var(--green); border-radius:4px; padding:0.3rem 0.75rem; font-size:0.65rem; letter-spacing:0.1em; text-transform:uppercase; cursor:pointer; font-family:'Syne',sans-serif; transition:all 0.2s; white-space:nowrap; display:inline-flex; align-items:center; gap:4px; }
 .btn-done:hover { background:rgba(16,185,129,0.2); }
 .btn-share { background:none; border:1px solid var(--border); border-radius:4px; padding:0.3rem 0.75rem; font-size:0.65rem; letter-spacing:0.1em; text-transform:uppercase; cursor:pointer; font-family:'Syne',sans-serif; color:var(--muted); transition:all 0.2s; }
 .btn-share:hover { color:var(--text); border-color:rgba(255,255,255,0.2); }
+
+/* Feedback "séance enregistrée" */
+@keyframes successPulse {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.08); box-shadow: 0 0 0 8px rgba(16,185,129,0.15); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+}
+@keyframes checkDraw {
+  to { stroke-dashoffset: 0; }
+}
+.btn-done.done {
+  background: var(--green) !important;
+  color: #060d0a !important;
+  border-color: var(--green) !important;
+  animation: successPulse 0.5s ease;
+}
+.btn-done.done svg path {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  animation: checkDraw 0.4s ease forwards 0.1s;
+}
+.btn-done.error {
+  background: rgba(248,113,113,0.2) !important;
+  border-color: rgba(248,113,113,0.4) !important;
+  color: #f87171 !important;
+}
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 2rem; left: 50%;
+  transform: translateX(-50%) translateY(120%);
+  background: var(--bg2);
+  border: 1px solid rgba(16,185,129,0.4);
+  border-left: 3px solid var(--green);
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  display: flex; align-items: center; gap: 0.85rem;
+  font-size: 0.85rem; color: var(--text);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  z-index: 1000; opacity: 0;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s;
+  max-width: 92vw;
+}
+.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+.toast.toast-error { border-color: rgba(248,113,113,0.4); border-left-color: #f87171; }
+.toast-icon {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--green); display: flex; align-items: center; justify-content: center;
+  color: #060d0a; flex-shrink: 0;
+}
+.toast.toast-error .toast-icon { background: #f87171; }
+.toast-icon svg path {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  animation: checkDraw 0.4s ease forwards 0.15s;
+}
+.toast-title { font-family: 'Syne', sans-serif; font-weight: 600; font-size: 0.8rem; letter-spacing: 0.05em; }
+.toast-sub { font-size: 0.7rem; color: var(--muted); margin-top: 0.15rem; }
 
 /* Responsive */
 @media (max-width: 768px) {
@@ -148,6 +317,8 @@ textarea.input-field { resize: vertical; }
   .session-score-num { font-size: 1.8rem; }
   .form-grid { grid-template-columns: 1fr; }
   .sec-title { font-size: clamp(1.5rem, 7vw, 2.2rem); }
+  .toast { bottom: 1rem; padding: 0.85rem 1.15rem; font-size: 0.8rem; }
+  .session-map { height: 200px; }
 }
 @media (max-width: 480px) {
   .nav-links li:not(:last-child):not(:nth-last-child(2)) { display: none; }
@@ -394,9 +565,210 @@ textarea.input-field { resize: vertical; }
 </main>
 
 <script>
-const BACKEND = 'https://web-production-3668.up.railway.app';
+const BACKEND = window.location.origin;
 const CAT = { endurance:'Endurance', intensite:'Intensité', recuperation:'Récupération', force:'Force', specifique:'Spécifique', repos:'Repos' };
 let currentUser = null;
+
+// ── Géolocalisation & cartes ──
+let userLocation = null;        // { lat, lng } une fois obtenue
+let locationStatus = 'idle';    // 'idle' | 'requesting' | 'granted' | 'denied'
+const sessionMaps = {};         // { sessionId: { map, routeLayer, currentSeed } }
+
+async function requestLocation() {
+  if (locationStatus === 'granted' || locationStatus === 'requesting') return userLocation;
+  if (!navigator.geolocation) { locationStatus = 'denied'; return null; }
+
+  locationStatus = 'requesting';
+  return new Promise(resolve => {
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        locationStatus = 'granted';
+        document.querySelectorAll('.session-detail.open .session-map').forEach(el => {
+          const id = el.dataset.sessionId;
+          const dist = parseFloat(el.dataset.distanceKm) || 0;
+          const dur = parseFloat(el.dataset.durationMin) || 0;
+          const profile = el.dataset.profile || 'foot';
+          renderMap(el, id, dist, profile, dur);
+        });
+        resolve(userLocation);
+      },
+      () => { locationStatus = 'denied'; resolve(null); },
+      { timeout: 8000, maximumAge: 600000 }
+    );
+  });
+}
+
+function getRoutingProfile(category, name) {
+  // GraphHopper free tier ne supporte que foot/bike — on reste sur foot pour tout type de course
+  return 'foot';
+}
+
+async function renderMap(container, sessionId, distanceKm, profile = 'foot', durationMin = 0) {
+  if (!userLocation) {
+    container.innerHTML = `
+      <div class="session-map-empty">
+        <span>📍 Active la géolocalisation pour visualiser le parcours</span>
+        <button onclick="event.stopPropagation();requestLocation()">Autoriser</button>
+      </div>`;
+    return;
+  }
+
+  if (sessionMaps[sessionId]) {
+    setTimeout(() => sessionMaps[sessionId].map.invalidateSize(), 50);
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="session-map-inner" id="map-${sessionId}"></div>
+    <div class="map-actions">
+      <button class="map-action-btn" id="gpx-${sessionId}" onclick="event.stopPropagation();downloadGPX('${sessionId}')" title="Télécharger le parcours (GPX)">↓ GPX</button>
+      <button class="map-action-btn" id="gmaps-${sessionId}" onclick="event.stopPropagation();openInGoogleMaps('${sessionId}')" title="Ouvrir dans Google Maps">↗ Maps</button>
+      <button class="map-refresh-btn" id="refresh-${sessionId}" onclick="event.stopPropagation();regenerateRoute('${sessionId}', ${distanceKm}, '${profile}', ${durationMin})" title="Générer un autre parcours">↻</button>
+    </div>
+    <div class="map-info" id="map-info-${sessionId}"></div>
+  `;
+
+  const mapEl = document.getElementById(`map-${sessionId}`);
+  const map = L.map(mapEl, {
+    zoomControl: false,
+    attributionControl: false,
+    dragging: false,
+    scrollWheelZoom: false,
+    doubleClickZoom: false,
+    touchZoom: false,
+  }).setView([userLocation.lat, userLocation.lng], 13);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+  const pinIcon = L.divIcon({
+    className: 'cronos-pin',
+    html: `<div style="width:14px;height:14px;background:#10B981;border:2px solid #060d0a;border-radius:50%;box-shadow:0 0 0 4px rgba(16,185,129,0.3)"></div>`,
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
+  });
+  L.marker([userLocation.lat, userLocation.lng], { icon: pinIcon }).addTo(map);
+
+  sessionMaps[sessionId] = {
+    map,
+    routeLayer: null,
+    currentSeed: Math.floor(Math.random() * 100000),
+    coordinates: null,
+    sessionDurationMin: durationMin,
+    sessionCategory: container.dataset.category || 'endurance',  // ← AJOUT
+  };
+
+  setTimeout(() => map.invalidateSize(), 100);
+
+  if (distanceKm > 0) {
+    await loadRoute(sessionId, distanceKm, profile, durationMin);
+  }
+}
+
+async function loadRoute(sessionId, distanceKm, profile, durationMin = 0) {
+  const entry = sessionMaps[sessionId];
+  if (!entry) return;
+
+  const infoEl = document.getElementById(`map-info-${sessionId}`);
+  const refreshBtn = document.getElementById(`refresh-${sessionId}`);
+  if (infoEl) infoEl.innerHTML = '<span class="spinner"></span> Calcul du parcours...';
+  if (refreshBtn) refreshBtn.classList.add('spinning');
+
+  try {
+    const url = `${BACKEND}/route/loop?lat=${userLocation.lat}&lng=${userLocation.lng}&distance_km=${distanceKm}&profile=${profile}&seed=${entry.currentSeed}`;
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('routing failed');
+    const data = await r.json();
+
+    if (entry.routeLayer) entry.map.removeLayer(entry.routeLayer);
+
+    entry.routeLayer = L.polyline(data.coordinates, {
+      color: '#10B981',
+      weight: 4,
+      opacity: 0.85,
+      lineCap: 'round',
+      lineJoin: 'round',
+    }).addTo(entry.map);
+
+    entry.map.fitBounds(entry.routeLayer.getBounds(), { padding: [20, 20] });
+    entry.coordinates = data.coordinates;  // pour GPX / Google Maps
+
+    // Durée estimée depuis le pacing de l'athlète + catégorie de séance
+    const estimatedDur = estimateDuration(data.distance_km, entry.sessionCategory);
+    if (infoEl) {
+      if (estimatedDur) {
+        infoEl.innerHTML = `<strong>${data.distance_km} km</strong> · ~${estimatedDur} min`;
+      } else {
+        infoEl.innerHTML = `<strong>${data.distance_km} km</strong>`;
+      }
+    }
+  } catch(e) {
+    console.error('loadRoute error', e);
+    if (infoEl) infoEl.innerHTML = '<span style="color:#f87171">Parcours indisponible</span>';
+  } finally {
+    if (refreshBtn) refreshBtn.classList.remove('spinning');
+  }
+}
+
+function regenerateRoute(sessionId, distanceKm, profile, durationMin = 0) {
+  const entry = sessionMaps[sessionId];
+  if (!entry) return;
+  entry.currentSeed = Math.floor(Math.random() * 100000);
+  loadRoute(sessionId, distanceKm, profile, durationMin);
+}
+
+// ── Export GPX (Garmin, Strava, etc.) ──
+function downloadGPX(sessionId) {
+  const entry = sessionMaps[sessionId];
+  if (!entry || !entry.coordinates) return;
+
+  const now = new Date().toISOString();
+  const points = entry.coordinates.map(c => `<trkpt lat="${c[0]}" lon="${c[1]}"></trkpt>`).join('\n      ');
+
+  const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="CRONOS — Peakflow Technologies" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata>
+    <name>Parcours CRONOS</name>
+    <time>${now}</time>
+  </metadata>
+  <trk>
+    <name>Séance CRONOS du ${new Date().toLocaleDateString('fr-FR')}</name>
+    <trkseg>
+      ${points}
+    </trkseg>
+  </trk>
+</gpx>`;
+
+  const blob = new Blob([gpx], { type: 'application/gpx+xml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `cronos-parcours-${Date.now()}.gpx`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  showToast('Parcours téléchargé', 'Importe ce fichier dans Garmin Connect, Strava ou Komoot');
+}
+
+// ── Ouvrir dans Google Maps ──
+function openInGoogleMaps(sessionId) {
+  const entry = sessionMaps[sessionId];
+  if (!entry || !entry.coordinates) return;
+
+  // Google Maps limite ~25 waypoints. On échantillonne le parcours.
+  const coords = entry.coordinates;
+  const maxPoints = 9;  // 9 points intermédiaires + start + end = 11 (safe)
+  const step = Math.max(1, Math.floor(coords.length / maxPoints));
+  const sampled = [];
+  for (let i = 0; i < coords.length; i += step) sampled.push(coords[i]);
+  if (sampled[sampled.length - 1] !== coords[coords.length - 1]) sampled.push(coords[coords.length - 1]);
+
+  const waypoints = sampled.map(c => `${c[0]},${c[1]}`).join('/');
+  const url = `https://www.google.com/maps/dir/${waypoints}/data=!4m2!4m1!3e2`;  // 3e2 = mode marche/course
+  window.open(url, '_blank');
+}
 
 const SESSION_DETAILS = {
   0:  { why:"Permet au corps de récupérer sans stagnation.", structure:"Pas de structure — marche légère ou repos complet.", tip:"Ne force rien. Le repos est une séance comme les autres." },
@@ -448,6 +820,28 @@ const SESSION_DETAILS = {
 
 function showErr(id, m) { const e=document.getElementById(id); e.textContent=m; e.style.display='block'; setTimeout(()=>e.style.display='none',4000); }
 function showOk(id) { const e=document.getElementById(id); e.style.display='block'; setTimeout(()=>e.style.display='none',3000); }
+
+// ── Toast ──
+function showToast(title, sub, isError = false) {
+  document.querySelectorAll('.toast').forEach(t => t.remove());
+  const t = document.createElement('div');
+  t.className = 'toast' + (isError ? ' toast-error' : '');
+  const iconSvg = isError
+    ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>`
+    : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>`;
+  t.innerHTML = `
+    <div class="toast-icon">${iconSvg}</div>
+    <div>
+      <div class="toast-title">${title}</div>
+      ${sub ? `<div class="toast-sub">${sub}</div>` : ''}
+    </div>`;
+  document.body.appendChild(t);
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => {
+    t.classList.remove('show');
+    setTimeout(() => t.remove(), 400);
+  }, 2800);
+}
 
 function showTab(name) {
   document.querySelectorAll('.tab-btn').forEach((b,i) => {
@@ -502,6 +896,7 @@ async function loadDash() {
     const check = await fetch(`${BACKEND}/users/${encodeURIComponent(name)}`);
     if (!check.ok) { showErr('err-msg',`"${name}" introuvable — connecte d'abord ta montre.`); btn.disabled=false; btn.textContent='Accéder à mes données'; return; }
     currentUser = name;
+    loadPacing(name);
     document.getElementById('login-wrap').style.display = 'none';
     document.getElementById('dashboard').classList.add('on');
     document.getElementById('nav-logout').style.display = 'block';
@@ -602,6 +997,8 @@ async function refreshSessions() {
   document.getElementById('sessions-section').style.display = 'none';
   document.getElementById('sessions-loading').style.display = 'flex';
   document.getElementById('sessions-loading').innerHTML = '<div class="spinner"></div><span>Actualisation...</span>';
+  // Reset les cartes pour qu'elles soient regénérées avec les nouvelles séances
+  Object.keys(sessionMaps).forEach(k => { try { sessionMaps[k].map.remove(); } catch(e) {} delete sessionMaps[k]; });
   await displaySessions(currentUser);
 }
 
@@ -638,6 +1035,7 @@ async function displaySessions(name) {
     }
     document.getElementById('sessions-wrap').innerHTML = recs.map((rec,i) => {
       const det = SESSION_DETAILS[rec.id] || { why:'—', structure:'—', tip:'—' };
+      const profile = getRoutingProfile(rec.category, rec.name);
       return `
       <div class="session-row" style="animation-delay:${i*0.07}s" onmouseenter="openDetail(${rec.id})" onmouseleave="closeDetail(${rec.id})">
         <div class="session-num">0${rec.rank}</div>
@@ -653,7 +1051,7 @@ async function displaySessions(name) {
             <span class="tag tag-expand" id="tag-expand-${rec.id}">↓ Détails</span>
           </div>
           <div style="display:flex;gap:0.5rem;margin-top:0.75rem;flex-wrap:wrap">
-            <button class="btn-done" onclick="event.stopPropagation();markDone(${rec.id},'${rec.name}','${rec.category}',${rec.duration_min},${rec.distance_km})">✓ Je fais cette séance</button>
+            <button class="btn-done" onclick="event.stopPropagation();markDone(this,${rec.id},'${rec.name}','${rec.category}',${rec.duration_min},${rec.distance_km})">✓ Je fais cette séance</button>
             <button class="btn-share" onclick="event.stopPropagation();shareSession('${rec.name}','${rec.category}',${rec.duration_min},${rec.distance_km})">↗ Partager</button>
           </div>
           <div class="session-detail" id="detail-${rec.id}">
@@ -661,6 +1059,13 @@ async function displaySessions(name) {
               <div><div class="detail-block-label">Pourquoi cette séance</div><div class="detail-block-text">${det.why}</div></div>
               <div><div class="detail-block-label">Structure</div><div class="detail-block-text">${det.structure}</div></div>
               <div><div class="detail-block-label">Point d'attention</div><div class="detail-block-text">${det.tip}</div></div>
+              ${rec.distance_km > 0 ? `
+                <div>
+                  <div class="detail-block-label">Ton parcours suggéré</div>
+                  <div class="session-map" data-session-id="${rec.id}" data-distance-km="${rec.distance_km}" data-duration-min="${rec.duration_min || 0}" data-profile="${profile}" data-category="${rec.category}">
+                    <div class="session-map-empty"><span>Chargement de la carte...</span></div>
+                  </div>
+                </div>` : ''}
             </div>
           </div>
         </div>
@@ -680,7 +1085,20 @@ function openDetail(id) {
   document.querySelectorAll('[id^="tag-expand-"]').forEach(el => el.textContent = '↓ Détails');
   const el = document.getElementById(`detail-${id}`);
   const tag = document.getElementById(`tag-expand-${id}`);
-  if (el) el.classList.add('open');
+  if (el) {
+    el.classList.add('open');
+    const mapEl = el.querySelector('.session-map');
+    if (mapEl) {
+      const dist = parseFloat(mapEl.dataset.distanceKm) || 0;
+      const dur = parseFloat(mapEl.dataset.durationMin) || 0;
+      const profile = mapEl.dataset.profile || 'foot';
+      if (!userLocation && locationStatus === 'idle') {
+        requestLocation().then(() => renderMap(mapEl, id, dist, profile, dur));
+      } else {
+        renderMap(mapEl, id, dist, profile, dur);
+      }
+    }
+  }
   if (tag) tag.textContent = '↑ Fermer';
 }
 
@@ -711,6 +1129,28 @@ async function loadProfile(name) {
     if (d.best_half_min)     document.getElementById('p-besthalf').value = minutesToTime(d.best_half_min);
     if (d.best_marathon_min) document.getElementById('p-bestmarathon').value = minutesToTime(d.best_marathon_min);
   } catch(e) {}
+}
+
+// ── Pacing de l'athlète ──
+let userPacing = null;  // { avg_pace_min_per_km, source, estimated_paces: {...} }
+
+async function loadPacing(name) {
+  try {
+    const r = await fetch(`${BACKEND}/users/${encodeURIComponent(name)}/pacing`);
+    if (!r.ok) return;
+    const d = await r.json();
+    if (d.source !== 'unavailable') userPacing = d;
+  } catch(e) {
+    console.warn('Pacing unavailable', e);
+  }
+}
+
+// Calcule la durée estimée selon la catégorie de séance
+function estimateDuration(distanceKm, category) {
+  if (!userPacing || !userPacing.estimated_paces) return null;
+  const pace = userPacing.estimated_paces[category];
+  if (!pace || pace <= 0) return null;
+  return Math.round(distanceKm * pace);
 }
 
 async function saveProfile() {
@@ -824,7 +1264,7 @@ async function loadHistory(name) {
           <div class="history-session-name">${e.session_name}</div>
           ${meta ? `<div class="history-meta">${meta}</div>` : ''}
         </div>
-        <button class="btn-remove" onclick="removeHistory(${e.id})">Retirer</button>
+        <button class="btn-remove" onclick="removeHistory(this, ${e.id})">Retirer</button>
       </div>`;
     }).join('');
   } catch(err) {
@@ -832,10 +1272,16 @@ async function loadHistory(name) {
   }
 }
 
-async function markDone(sessionId, sessionName, category, durationMin, distanceKm) {
+async function markDone(btn, sessionId, sessionName, category, durationMin, distanceKm) {
   if (!currentUser) return;
+  if (btn.disabled) return;
+
+  btn.disabled = true;
+  const originalHTML = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner" style="width:10px;height:10px;border-width:1.5px"></span> Envoi...';
+
   try {
-    await fetch(`${BACKEND}/session-history`, {
+    const r = await fetch(`${BACKEND}/session-history`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -847,18 +1293,74 @@ async function markDone(sessionId, sessionName, category, durationMin, distanceK
         distance_km: distanceKm || null,
       })
     });
-    // Feedback visuel
-    const btn = event?.target;
-    if (btn) { btn.textContent = '✓ Enregistré !'; btn.style.background = 'rgba(16,185,129,0.3)'; setTimeout(() => { btn.textContent = '✓ Je fais cette séance'; btn.style.background = ''; }, 2000); }
-  } catch(e) { console.error('markDone error', e); }
+
+    if (!r.ok) throw new Error('save failed');
+
+    btn.classList.add('done');
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>Enregistré`;
+
+    const CAT_FR = { endurance:'Endurance', intensite:'Intensité', recuperation:'Récupération', force:'Force', specifique:'Spécifique', repos:'Repos' };
+    const meta = [CAT_FR[category] ?? category, durationMin ? `${durationMin}min` : null, distanceKm ? `${distanceKm}km` : null].filter(Boolean).join(' · ');
+    showToast('Séance enregistrée', `${sessionName} — ${meta}`);
+
+    setTimeout(() => {
+      btn.classList.remove('done');
+      btn.innerHTML = originalHTML;
+      btn.disabled = false;
+    }, 2800);
+
+  } catch(e) {
+    console.error('markDone error', e);
+    btn.classList.add('error');
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>Erreur`;
+    showToast('Erreur', 'La séance n\'a pas pu être enregistrée', true);
+    setTimeout(() => {
+      btn.classList.remove('error');
+      btn.innerHTML = originalHTML;
+      btn.disabled = false;
+    }, 2800);
+  }
 }
 
-async function removeHistory(entryId) {
-  if (!currentUser || !confirm("Retirer cette séance de l'historique ?")) return;
+async function removeHistory(btn, entryId) {
+  if (!currentUser) return;
+  if (btn.disabled) return;
+
+  btn.disabled = true;
+  const originalHTML = btn.innerHTML;
+  const itemEl = btn.closest('.history-item');
+  const sessionName = itemEl?.querySelector('.history-session-name')?.textContent || 'Séance';
+
+  // Feedback immédiat sur le bouton
+  btn.classList.add('removing');
+  btn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>Retiré`;
+
   try {
-    await fetch(`${BACKEND}/session-history/${entryId}`, { method: 'DELETE' });
-    loadHistory(currentUser);
-  } catch(e) {}
+    const r = await fetch(`${BACKEND}/session-history/${entryId}`, { method: 'DELETE' });
+    if (!r.ok) throw new Error('delete failed');
+
+    // Toast (réutilise showToast avec un texte adapté)
+    showToast('Séance retirée', sessionName);
+
+    // Animation de sortie de la ligne, puis on recharge l'historique en silence
+    if (itemEl) {
+      itemEl.classList.add('removing');
+      setTimeout(() => loadHistory(currentUser), 850);
+    } else {
+      loadHistory(currentUser);
+    }
+
+  } catch(e) {
+    console.error('removeHistory error', e);
+    btn.classList.remove('removing');
+    btn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>Erreur`;
+    btn.style.color = '#f87171';
+    showToast('Erreur', 'La séance n\'a pas pu être retirée', true);
+    setTimeout(() => {
+      btn.innerHTML = originalHTML;
+      btn.disabled = false;
+    }, 2500);
+  }
 }
 
 function shareSession(name, category, durationMin, distanceKm) {

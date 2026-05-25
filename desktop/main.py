@@ -24,7 +24,7 @@ from urllib.parse import urlencode
 import requests
 from garminconnect import Garmin, GarminConnectAuthenticationError
 
-BACKEND_URL = "https://web-production-3668.up.railway.app"
+BACKEND_URL = "http://localhost:8000"
 
 WATCHES = [
     ("Garmin",   "garmin",   True),
